@@ -1,0 +1,872 @@
+
+@page "/admin/staff-management"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AdminOnly")]
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using WellnessPlatform.Models
+@using WellnessPlatform.Services
+
+@inject UserManager<AppUser> UserManager
+@inject RoleManager<IdentityRole<int>> RoleManager
+@inject AccountEmailService AccountEmailService
+
+<PageTitle>Staff Management - Wellness First</PageTitle>
+
+<div class="container-fluid py-4">
+
+    <h2>Staff Management</h2>
+    <p class="text-muted">Manage Wellness First staff accounts.</p>
+
+    @if (!string.IsNullOrWhiteSpace(Message))
+    {
+        <div class="alert alert-success">@Message</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="alert alert-danger">@ErrorMessage</div>
+    }
+
+    @* CREATE STAFF *@
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            <h5>Create Staff Account</h5>
+        </div>
+        <div class="card-body">
+            <EditForm Model="NewStaff" OnValidSubmit="CreateStaffAsync">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Full Name</label>
+                        <InputText class="form-control" @bind-Value="NewStaff.FullName" />
+                        <ValidationMessage For="@(() => NewStaff.FullName)" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Email Address</label>
+                        <InputText class="form-control" type="email" @bind-Value="NewStaff.Email" />
+                        <ValidationMessage For="@(() => NewStaff.Email)" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Create Password</label>
+                        <InputText class="form-control"
+                                   type="@(ShowPassword ? "text" : "password")"
+                                   @bind-Value="NewStaff.Password"
+                                   autocomplete="new-password" />
+                        <ValidationMessage For="@(() => NewStaff.Password)" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Confirm Password</label>
+                        <InputText class="form-control"
+                                   type="@(ShowPassword ? "text" : "password")"
+                                   @bind-Value="NewStaff.ConfirmPassword"
+                                   autocomplete="new-password" />
+                        <ValidationMessage For="@(() => NewStaff.ConfirmPassword)" />
+                    </div>
+                </div>
+
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" @bind="ShowPassword" />
+                    <label class="form-check-label">Show password</label>
+                </div>
+
+                <button type="submit" class="btn btn-success mt-3" disabled="@IsBusy">
+                    Create Staff Account
+                </button>
+            </EditForm>
+        </div>
+    </div>
+
+    @* EDIT STAFF *@
+    @if (EditingStaff is not null)
+    {
+        <div class="card shadow-sm mb-4 border-primary">
+            <div class="card-header bg-primary text-white">
+                <h5>Edit Staff Account</h5>
+            </div>
+            <div class="card-body">
+                <EditForm Model="EditingStaff" OnValidSubmit="SaveStaffChangesAsync">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Full Name</label>
+                            <InputText class="form-control" @bind-Value="EditingStaff.FullName" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email Address</label>
+                            <InputText class="form-control" type="email" @bind-Value="EditingStaff.Email" />
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary mt-3" disabled="@IsBusy">
+                        Save Changes
+                    </button>
+                    <button type="button" class="btn btn-secondary mt-3"
+                            @onclick="CancelEdit" disabled="@IsBusy">
+                        Cancel
+                    </button>
+                </EditForm>
+            </div>
+        </div>
+    }
+
+    @* RESET PASSWORD FORM *@
+    @if (ResettingStaff is not null)
+    {
+        <div class="card shadow-sm mb-4 border-info">
+            <div class="card-header bg-info text-dark">
+                <h5>Reset Staff Password</h5>
+            </div>
+            <div class="card-body">
+                <p>Resetting password for: <strong>@ResettingStaff.FullName</strong></p>
+
+                <EditForm Model="ResetPasswordInput" OnValidSubmit="ResetStaffPasswordAsync">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">New Temporary Password</label>
+                            <InputText class="form-control"
+                                       type="@(ShowResetPassword ? "text" : "password")"
+                                       @bind-Value="ResetPasswordInput.Password"
+                                       autocomplete="new-password" />
+                            <ValidationMessage For="@(() => ResetPasswordInput.Password)" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Confirm Temporary Password</label>
+                            <InputText class="form-control"
+                                       type="@(ShowResetPassword ? "text" : "password")"
+                                       @bind-Value="ResetPasswordInput.ConfirmPassword"
+                                       autocomplete="new-password" />
+                            <ValidationMessage For="@(() => ResetPasswordInput.ConfirmPassword)" />
+                        </div>
+                    </div>
+
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox"
+                               id="showResetPassword" @bind="ShowResetPassword" />
+                        <label class="form-check-label" for="showResetPassword">
+                            Show password
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-info mt-3" disabled="@IsBusy">
+                        @(IsBusy ? "Resetting..." : "Reset Password")
+                    </button>
+
+                    <button type="button" class="btn btn-secondary mt-3"
+                            @onclick="CancelResetPassword" disabled="@IsBusy">
+                        Cancel
+                    </button>
+                </EditForm>
+            </div>
+        </div>
+    }
+
+
+
+
+
+
+    @if (ResettingStaff is not null)
+{
+    <div class="card shadow-sm mb-4 border-info">
+        <div class="card-header bg-info text-dark">
+            <h5>Reset Staff Password</h5>
+        </div>
+
+        <div class="card-body">
+            <p>Staff member: <strong>@ResettingStaff.FullName</strong></p>
+
+            <EditForm Model="ResetPasswordInput"
+                      OnValidSubmit="ResetStaffPasswordAsync">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <label class="form-label">New Temporary Password</label>
+                <InputText class="form-control"
+                           type="password"
+                           @bind-Value="ResetPasswordInput.Password" />
+
+                <label class="form-label mt-3">Confirm Password</label>
+                <InputText class="form-control"
+                           type="password"
+                           @bind-Value="ResetPasswordInput.ConfirmPassword" />
+
+                <button type="submit"
+                        class="btn btn-info mt-3"
+                        disabled="@IsBusy">
+                    Reset Password
+                </button>
+
+                <button type="button"
+                        class="btn btn-secondary mt-3"
+                        @onclick="CancelResetPassword"
+                        disabled="@IsBusy">
+                    Cancel
+                </button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+
+
+
+
+
+    @* STAFF LIST *@
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between">
+            <h5>Staff Accounts</h5>
+            <span class="badge bg-primary">@StaffMembers.Count Accounts</span>
+        </div>
+
+        <div class="card-body">
+            @if (IsLoading)
+            {
+                <p>Loading staff accounts...</p>
+            }
+            else if (StaffMembers.Count == 0)
+            {
+                <p class="text-muted">No staff accounts found.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Full Name</th>
+                                <th>Email</th>
+                                <th>Email Status</th>
+                                <th>Account Status</th>
+                                <th>Created</th>
+                                <th style="min-width:350px">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var staff in StaffMembers)
+                            {
+                                <tr @key="staff.Id">
+                                    <td>@staff.FullName</td>
+                                    <td>@staff.Email</td>
+                                    <td>
+                                        @if (staff.EmailConfirmed)
+                                        {
+                                            <span class="badge bg-success">Verified</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark">Unverified</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (staff.Active)
+                                        {
+                                            <span class="badge bg-success">Active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        }
+                                    </td>
+                                    <td>@staff.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy")</td>
+                                    <td>
+                                        <div class="d-flex gap-2 flex-wrap">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    disabled="@IsBusy"
+                                                    @onclick="() => EditStaff(staff)">
+                                                Edit
+                                            </button>
+
+                                            <button type="button"
+                                                    class="btn btn-sm btn-info text-white"
+                                                    disabled="@IsBusy || !staff.Active"
+                                                    @onclick="() => OpenResetPassword(staff)">
+                                                Reset Password
+                                            </button>
+
+                                            @if (!staff.EmailConfirmed && staff.Active)
+                                            {
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-info"
+                                                        disabled="@IsBusy"
+                                                        @onclick="() => ResendVerificationAsync(staff)">
+                                                    Resend Verification
+                                                </button>
+                                            }
+
+                                            <button type="button"
+                                                    class="btn btn-sm @(staff.Active ? "btn-outline-warning" : "btn-outline-success")"
+                                                    disabled="@IsBusy"
+                                                    @onclick="() => ToggleStatusAsync(staff)">
+                                                @(staff.Active ? "Deactivate" : "Activate")
+                                            </button>
+
+                                            @if (DeleteConfirmationId == staff.Id)
+                                            {
+                                                <button type="button"
+                                                        class="btn btn-sm btn-danger"
+                                                        disabled="@IsBusy"
+                                                        @onclick="() => SoftDeleteStaffAsync(staff)">
+                                                    Confirm Delete
+                                                </button>
+                                                <button type="button"
+                                                        class="btn btn-sm btn-secondary"
+                                                        @onclick="CancelDelete">
+                                                    Cancel
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-danger"
+                                                        disabled="@IsBusy"
+                                                        @onclick="() => AskDelete(staff)">
+                                                    Delete
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private StaffInput NewStaff = new();
+    private StaffEditInput? EditingStaff;
+    private AppUser? ResettingStaff;
+    private ResetPasswordInputModel ResetPasswordInput = new();
+
+    private List<AppUser> StaffMembers = new();
+
+    private bool IsLoading = true;
+    private bool IsBusy;
+    private bool ShowPassword;
+    private bool ShowResetPassword;
+
+    private int? DeleteConfirmationId;
+
+    private string Message = "";
+    private string ErrorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStaffAsync();
+    }
+
+    private async Task LoadStaffAsync()
+    {
+        IsLoading = true;
+        try
+        {
+            StaffMembers = await UserManager.Users
+                .AsNoTracking()
+                .Where(user => user.Role == UserRole.Staff)
+                .OrderBy(user => user.FullName)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Unable to load staff accounts: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    // TEMPORARY BUTTON TEST
+    private void TestResetButton(int staffId)
+    {
+        Message = $"SUCCESS: Button clicked for Staff ID {staffId}.";
+        ErrorMessage = "";
+    }
+
+    private async Task CreateStaffAsync()
+    {
+        if (IsBusy) return;
+
+        IsBusy = true;
+        Message = "";
+        ErrorMessage = "";
+
+        try
+        {
+            var email = NewStaff.Email.Trim();
+            var existingUser = await UserManager.FindByEmailAsync(email);
+
+            if (existingUser is not null)
+            {
+                ErrorMessage = "An account with this email address already exists.";
+                return;
+            }
+
+            if (!AccountEmailService.IsConfigured)
+            {
+                ErrorMessage = "Email delivery is not configured. Check SMTP settings.";
+                return;
+            }
+
+            const string staffRole = nameof(UserRole.Staff);
+
+            if (!await RoleManager.RoleExistsAsync(staffRole))
+            {
+                var roleResult = await RoleManager.CreateAsync(
+                    new IdentityRole<int>(staffRole));
+
+                if (!roleResult.Succeeded)
+                {
+                    ErrorMessage = string.Join(" ", roleResult.Errors.Select(e => e.Description));
+                    return;
+                }
+            }
+
+            var newUser = new AppUser
+            {
+                UserName = email,
+                Email = email,
+                FullName = NewStaff.FullName.Trim(),
+                Role = UserRole.Staff,
+                Active = true,
+                EmailConfirmed = false,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var createResult = await UserManager.CreateAsync(newUser, NewStaff.Password);
+
+            if (!createResult.Succeeded)
+            {
+                ErrorMessage = string.Join(" ", createResult.Errors.Select(e => e.Description));
+                return;
+            }
+
+            var roleResultAssignment = await UserManager.AddToRoleAsync(newUser, staffRole);
+
+            if (!roleResultAssignment.Succeeded)
+            {
+                await UserManager.DeleteAsync(newUser);
+                ErrorMessage = string.Join(" ", roleResultAssignment.Errors.Select(e => e.Description));
+                return;
+            }
+
+            try
+            {
+                await AccountEmailService.SendConfirmationEmailAsync(newUser);
+                Message = $"Staff account created for {newUser.FullName}. Verification email sent.";
+            }
+            catch
+            {
+                Message = $"Staff account created for {newUser.FullName}, but verification email could not be sent.";
+            }
+
+            NewStaff = new StaffInput();
+            ShowPassword = false;
+            await LoadStaffAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Unable to create Staff account: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void EditStaff(AppUser staff)
+    {
+        Message = "";
+        ErrorMessage = "";
+        ResettingStaff = null;
+        DeleteConfirmationId = null;
+
+        EditingStaff = new StaffEditInput
+        {
+            Id = staff.Id,
+            FullName = staff.FullName,
+            Email = staff.Email ?? ""
+        };
+    }
+
+    private void CancelEdit()
+    {
+        EditingStaff = null;
+    }
+
+    private async Task SaveStaffChangesAsync()
+    {
+        if (IsBusy || EditingStaff is null) return;
+
+        IsBusy = true;
+        Message = "";
+        ErrorMessage = "";
+
+        try
+        {
+            var user = await UserManager.FindByIdAsync(EditingStaff.Id.ToString());
+
+            if (user is null || user.Role != UserRole.Staff)
+            {
+                ErrorMessage = "Staff account not found.";
+                return;
+            }
+
+            var newEmail = EditingStaff.Email.Trim();
+            var oldEmail = user.Email ?? "";
+            var emailChanged = !string.Equals(oldEmail, newEmail, StringComparison.OrdinalIgnoreCase);
+
+            if (emailChanged)
+            {
+                var existingUser = await UserManager.FindByEmailAsync(newEmail);
+
+                if (existingUser is not null && existingUser.Id != user.Id)
+                {
+                    ErrorMessage = "Another account already uses this email address.";
+                    return;
+                }
+
+                if (!AccountEmailService.IsConfigured)
+                {
+                    ErrorMessage = "Email delivery is not configured.";
+                    return;
+                }
+
+                var usernameResult = await UserManager.SetUserNameAsync(user, newEmail);
+
+                if (!usernameResult.Succeeded)
+                {
+                    ErrorMessage = string.Join(" ", usernameResult.Errors.Select(e => e.Description));
+                    return;
+                }
+
+                var emailResult = await UserManager.SetEmailAsync(user, newEmail);
+
+                if (!emailResult.Succeeded)
+                {
+                    await UserManager.SetUserNameAsync(user, oldEmail);
+                    ErrorMessage = string.Join(" ", emailResult.Errors.Select(e => e.Description));
+                    return;
+                }
+
+                user.EmailConfirmed = false;
+            }
+
+            user.FullName = EditingStaff.FullName.Trim();
+
+            var updateResult = await UserManager.UpdateAsync(user);
+
+            if (!updateResult.Succeeded)
+            {
+                ErrorMessage = string.Join(" ", updateResult.Errors.Select(e => e.Description));
+                return;
+            }
+
+            if (emailChanged)
+            {
+                try
+                {
+                    await AccountEmailService.SendConfirmationEmailAsync(user);
+                    Message = "Staff details updated. Verification email sent to the new address.";
+                }
+                catch
+                {
+                    Message = "Staff details updated, but verification email could not be sent.";
+                }
+            }
+            else
+            {
+                Message = "Staff details updated successfully.";
+            }
+
+            EditingStaff = null;
+            await LoadStaffAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Unable to update Staff account: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void OpenResetPassword(AppUser staff)
+    {
+        Message = "";
+        ErrorMessage = "";
+        EditingStaff = null;
+        DeleteConfirmationId = null;
+
+        ResettingStaff = staff;
+        ResetPasswordInput = new ResetPasswordInputModel();
+        ShowResetPassword = false;
+    }
+
+    private void CancelResetPassword()
+    {
+        ResettingStaff = null;
+        ResetPasswordInput = new ResetPasswordInputModel();
+        ShowResetPassword = false;
+    }
+
+    private async Task ResetStaffPasswordAsync()
+    {
+        if (IsBusy || ResettingStaff is null) return;
+
+        IsBusy = true;
+        Message = "";
+        ErrorMessage = "";
+
+        try
+        {
+            var staff = await UserManager.FindByIdAsync(ResettingStaff.Id.ToString());
+
+            if (staff is null || staff.Role != UserRole.Staff)
+            {
+                ErrorMessage = "Staff account not found.";
+                return;
+            }
+
+            if (!staff.Active)
+            {
+                ErrorMessage = "Activate this Staff account before resetting its password.";
+                return;
+            }
+
+            var token = await UserManager.GeneratePasswordResetTokenAsync(staff);
+
+            var result = await UserManager.ResetPasswordAsync(
+                staff, token, ResetPasswordInput.Password);
+
+            if (!result.Succeeded)
+            {
+                ErrorMessage = string.Join(" ", result.Errors.Select(e => e.Description));
+                return;
+            }
+
+            Message = $"Password for {staff.FullName} has been reset successfully. Give the temporary password to the staff member securely.";
+
+            ResettingStaff = null;
+            ResetPasswordInput = new ResetPasswordInputModel();
+            ShowResetPassword = false;
+
+            await LoadStaffAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Unable to reset Staff password: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task ToggleStatusAsync(AppUser staff)
+    {
+        if (IsBusy) return;
+
+        IsBusy = true;
+        Message = "";
+        ErrorMessage = "";
+
+        try
+        {
+            var user = await UserManager.FindByIdAsync(staff.Id.ToString());
+
+            if (user is null || user.Role != UserRole.Staff)
+            {
+                ErrorMessage = "Staff account not found.";
+                return;
+            }
+
+            user.Active = !user.Active;
+            var result = await UserManager.UpdateAsync(user);
+
+            if (!result.Succeeded)
+            {
+                ErrorMessage = string.Join(" ", result.Errors.Select(e => e.Description));
+                return;
+            }
+
+            Message = user.Active
+                ? $"{user.FullName} has been activated."
+                : $"{user.FullName} has been deactivated.";
+
+            await LoadStaffAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Unable to update Staff account: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void AskDelete(AppUser staff)
+    {
+        Message = "";
+        ErrorMessage = "";
+        EditingStaff = null;
+        ResettingStaff = null;
+        DeleteConfirmationId = staff.Id;
+    }
+
+    private void CancelDelete()
+    {
+        DeleteConfirmationId = null;
+    }
+
+    private async Task SoftDeleteStaffAsync(AppUser staff)
+    {
+        if (IsBusy || DeleteConfirmationId != staff.Id) return;
+
+        IsBusy = true;
+        Message = "";
+        ErrorMessage = "";
+
+        try
+        {
+            var user = await UserManager.FindByIdAsync(staff.Id.ToString());
+
+            if (user is null || user.Role != UserRole.Staff)
+            {
+                ErrorMessage = "Staff account not found.";
+                return;
+            }
+
+            user.Active = false;
+            var result = await UserManager.UpdateAsync(user);
+
+            if (!result.Succeeded)
+            {
+                ErrorMessage = string.Join(" ", result.Errors.Select(e => e.Description));
+                return;
+            }
+
+            Message = $"{user.FullName}'s account is now inactive. Historical records have been preserved.";
+            DeleteConfirmationId = null;
+
+            await LoadStaffAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Unable to delete Staff account: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task ResendVerificationAsync(AppUser staff)
+    {
+        if (IsBusy) return;
+
+        IsBusy = true;
+        Message = "";
+        ErrorMessage = "";
+
+        try
+        {
+            var user = await UserManager.FindByIdAsync(staff.Id.ToString());
+
+            if (user is null || user.Role != UserRole.Staff ||
+                !user.Active || user.EmailConfirmed)
+            {
+                ErrorMessage = "This Staff account is not eligible for verification.";
+                return;
+            }
+
+            if (!AccountEmailService.IsConfigured)
+            {
+                ErrorMessage = "Email delivery is not configured.";
+                return;
+            }
+
+            await AccountEmailService.SendConfirmationEmailAsync(user);
+            Message = $"Verification email sent to {user.Email}.";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Unable to send verification email: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private sealed class StaffInput
+    {
+        [Required(ErrorMessage = "Full name is required.")]
+        [StringLength(150)]
+        public string FullName { get; set; } = "";
+
+        [Required(ErrorMessage = "Email address is required.")]
+        [EmailAddress]
+        [StringLength(256)]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Password is required.")]
+        [MinLength(8)]
+        [RegularExpression(
+            @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$",
+            ErrorMessage = "Password must include uppercase, lowercase, a number, and a special character.")]
+        public string Password { get; set; } = "";
+
+        [Required]
+        [Compare(nameof(Password), ErrorMessage = "Passwords do not match.")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+
+    private sealed class StaffEditInput
+    {
+        public int Id { get; set; }
+
+        [Required]
+        [StringLength(150)]
+        public string FullName { get; set; } = "";
+
+        [Required]
+        [EmailAddress]
+        [StringLength(256)]
+        public string Email { get; set; } = "";
+    }
+
+    private sealed class ResetPasswordInputModel
+    {
+        [Required(ErrorMessage = "New password is required.")]
+        [MinLength(8, ErrorMessage = "Password must contain at least 8 characters.")]
+        [RegularExpression(
+            @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$",
+            ErrorMessage = "Password must include uppercase, lowercase, a number, and a special character.")]
+        public string Password { get; set; } = "";
+
+        [Required(ErrorMessage = "Please confirm the new password.")]
+        [Compare(nameof(Password), ErrorMessage = "Passwords do not match.")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

@@ -1,0 +1,200 @@
+
+@page "/staff/payments"
+@attribute [Authorize(Policy = "PaymentsCollect")]
+@using WellnessPlatform.Models
+@using WellnessPlatform.Services
+@inject CurrentUserService CurrentUser
+@inject WellnessService Wellness
+
+<PageTitle>Facility Payments | Wellness Platform</PageTitle>
+
+<div class="staff-payments-page">
+    <div class="staff-payments-container">
+
+        <header class="staff-payments-header">
+            <span class="staff-payments-eyebrow">STAFF WORKSPACE</span>
+            <h1>Facility payments</h1>
+            <p>
+                Record an in-person payment only after confirming
+                that the facility has collected it.
+            </p>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(collectionMessage))
+        {
+            <div class="payment-status-message" role="status">
+                <span class="payment-message-icon">ⓘ</span>
+                @collectionMessage
+            </div>
+        }
+
+        <section class="staff-payments-section">
+            <div class="staff-payments-section-header">
+                <div>
+                    <span class="staff-payments-section-eyebrow">PAYMENT MANAGEMENT</span>
+                    <h2>Appointments</h2>
+                    <p>Review appointment payments and record facility collections.</p>
+                </div>
+
+                <span class="staff-payments-count">
+                    @appointments.Count @(appointments.Count == 1 ? "appointment" : "appointments")
+                </span>
+            </div>
+
+            @if (appointments.Count == 0)
+            {
+                <div class="staff-payments-empty">
+                    <div class="staff-payments-empty-icon">₱</div>
+                    <h3>No appointments available</h3>
+                    <p>Appointments assigned to you will appear here.</p>
+                </div>
+            }
+            else
+            {
+                <div class="staff-payment-list">
+                    @foreach (var appointment in appointments)
+                    {
+                        var latestPayment = appointment.Payments
+                            .OrderByDescending(payment => payment.Id)
+                            .FirstOrDefault();
+
+                        var paid = latestPayment?.Status is PaymentStatus.Paid
+                            or PaymentStatus.PartiallyRefunded;
+
+                        var activeCheckout = appointment.Payments.Any(payment =>
+                            payment.Status == PaymentStatus.Pending &&
+                            !string.IsNullOrWhiteSpace(payment.CheckoutUrl) &&
+                            payment.CheckoutExpiresAt > DateTime.UtcNow);
+
+                        <article class="staff-payment-card">
+
+                            <div class="staff-payment-main">
+                                <div class="staff-payment-date">
+                                    <span>
+                                        @appointment.StartAt.ToLocalTime().ToString("MMM")
+                                    </span>
+                                    <strong>
+                                        @appointment.StartAt.ToLocalTime().ToString("dd")
+                                    </strong>
+                                    <small>
+                                        @appointment.StartAt.ToLocalTime().ToString("yyyy")
+                                    </small>
+                                </div>
+
+                                <div class="staff-payment-details">
+                                    <div class="staff-payment-badges">
+                                        <span class="staff-appointment-status @appointment.Status.ToString().ToLowerInvariant()">
+                                            @appointment.Status
+                                        </span>
+
+                                        @if (paid)
+                                        {
+                                            <span class="staff-payment-status paid">Paid</span>
+                                        }
+                                        else if (activeCheckout)
+                                        {
+                                            <span class="staff-payment-status checkout">Online checkout active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="staff-payment-status unpaid">Payment pending</span>
+                                        }
+                                    </div>
+
+                                    <h3>
+                                        @(appointment.Client?.FullName ?? "Client")
+                                    </h3>
+
+                                    <p class="staff-payment-service">
+                                        @(appointment.ServiceItem?.Name ?? "Wellness service")
+                                    </p>
+
+                                    <p class="staff-payment-time">
+                                        <span>◷</span>
+                                        @appointment.StartAt.ToLocalTime().ToString("h:mm tt")
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="staff-payment-action">
+                                <div class="staff-payment-amount">
+                                    <span>AMOUNT</span>
+                                    <strong>
+                                        PHP @(appointment.ServiceItem?.Price.ToString("N2") ?? "0.00")
+                                    </strong>
+                                </div>
+
+                                @if (paid)
+                                {
+                                    <div class="staff-payment-complete">
+                                        <span>✓</span>
+                                        Payment recorded
+                                    </div>
+                                }
+                                else if (activeCheckout)
+                                {
+                                    <p class="staff-payment-note">
+                                        Online checkout is active. Wait for it to finish or expire.
+                                    </p>
+                                }
+                                else if (appointment.ServiceItem is not null)
+                                {
+                                    <form method="post"
+                                          action="@($"/payments/facility/{appointment.Id}")"
+                                          data-enhance="false"
+                                          class="staff-payment-form">
+
+                                        <AntiforgeryToken />
+
+                                        <label class="staff-payment-confirm">
+                                            <input type="checkbox" name="Confirm" value="true" required />
+                                            <span>I confirmed this payment was collected.</span>
+                                        </label>
+
+                                        <button class="staff-payment-button" type="submit">
+                                            Record payment
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <div class="staff-payments-reminder">
+            <span class="staff-reminder-icon">🔒</span>
+            <div>
+                <strong>Payment verification reminder</strong>
+                <p>
+                    Only record payments that have actually been collected
+                    by the facility. Confirm the amount before submitting.
+                </p>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    private List<Appointment> appointments = [];
+
+    [SupplyParameterFromQuery(Name = "collection")]
+    public string? CollectionResult { get; set; }
+
+    private string? collectionMessage => CollectionResult switch
+    {
+        "success" => "Facility payment recorded and receipt issued.",
+        "invalid" => "The payment could not be recorded. Confirm collection and check the appointment status.",
+        "form-expired" => "The payment form expired. Refresh the page and try again.",
+        _ => null
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var staffId = CurrentUser.IsStaff ? CurrentUser.User?.Id : null;
+        appointments = await Wellness.GetPaymentCollectionAppointmentsAsync(staffId);
+    }
+}

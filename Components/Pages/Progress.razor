@@ -1,0 +1,119 @@
+@page "/progress"
+@attribute [Authorize(Policy = "ClientOnly")]
+@using WellnessPlatform.Models
+@inject CurrentUserService CurrentUser
+@inject WellnessService Wellness
+
+<PageTitle>My Progress | Wellness Platform</PageTitle>
+
+<div class="client-dashboard">
+    <section class="dashboard-hero">
+        <div class="dashboard-hero-content">
+            <div class="dashboard-eyebrow">WELLNESS</div>
+            <h1>My Progress</h1>
+            <p>Track progress recorded for your wellness goals.</p>
+        </div>
+        <div class="dashboard-hero-action">
+            <span class="staff-role-badge">@completedGoalCount of @goals.Count goals completed</span>
+        </div>
+    </section>
+
+    <section class="dashboard-summary" aria-label="Wellness progress summary">
+        <article class="dashboard-stat-card">
+            <div class="stat-icon" aria-hidden="true">🎯</div>
+            <div class="stat-content">
+                <span>Active goals</span>
+                <strong>@goals.Count(goal => goal.Status == GoalStatus.Active)</strong>
+                <small>Goals currently in progress</small>
+            </div>
+        </article>
+        <article class="dashboard-stat-card">
+            <div class="stat-icon" aria-hidden="true">✓</div>
+            <div class="stat-content">
+                <span>Completed goals</span>
+                <strong>@completedGoalCount</strong>
+                <small>Goals marked completed</small>
+            </div>
+        </article>
+        <article class="dashboard-stat-card">
+            <div class="stat-icon" aria-hidden="true">↗</div>
+            <div class="stat-content">
+                <span>Average goal progress</span>
+                <strong>@averageProgress%</strong>
+                <small>Across active and completed goals</small>
+            </div>
+        </article>
+    </section>
+
+    <section class="dashboard-panel staff-records-panel">
+        <div class="panel-header">
+            <div>
+                <span class="panel-eyebrow">GOAL TRACKING</span>
+                <h2>Progress by goal</h2>
+                <p>Update goal progress from Goals &amp; Routines.</p>
+            </div>
+        </div>
+
+        @if (goals.Count == 0)
+        {
+            <div class="empty-state">
+                <h3>No goals to track yet</h3>
+                <p>Create a goal to start tracking your progress.</p>
+                <a class="button button-secondary" href="/goals">Go to Goals &amp; Routines</a>
+            </div>
+        }
+        else
+        {
+            <div class="staff-record-list">
+                @foreach (var goal in goals)
+                {
+                    <article class="staff-record-card progress-goal-card">
+                        <div class="staff-record-heading">
+                            <div>
+                                <h3>@goal.Title</h3>
+                                <span class="panel-eyebrow">@goal.Status</span>
+                            </div>
+                            <strong>@goal.ProgressPercent%</strong>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(goal.Description))
+                        {
+                            <p>@goal.Description</p>
+                        }
+                        <progress class="goal-progress-bar"
+                                  max="100"
+                                  value="@goal.ProgressPercent">
+                            @goal.ProgressPercent%
+                        </progress>
+                        @if (goal.TargetDate.HasValue)
+                        {
+                            <small class="muted">
+                                Target @goal.TargetDate.Value.ToLocalTime().ToString("MMM d, yyyy")
+                            </small>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private List<Goal> goals = [];
+
+    private int completedGoalCount =>
+        goals.Count(goal => goal.Status == GoalStatus.Completed);
+
+    private int averageProgress =>
+        goals.Count == 0
+            ? 0
+            : (int)Math.Round(goals.Average(goal =>
+                Math.Clamp(goal.ProgressPercent, 0, 100)));
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.User is not null)
+        {
+            goals = await Wellness.GetGoalsAsync(CurrentUser.User.Id);
+        }
+    }
+}

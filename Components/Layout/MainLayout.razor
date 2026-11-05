@@ -1,0 +1,367 @@
+@inherits LayoutComponentBase
+
+@inject CurrentUserService CurrentUser
+@inject NavigationManager Navigation
+
+<header class="navbar">
+
+    <div class="navbar-inner">
+   <NavLink href="/" class="wellness-brand">
+        <img src="/images/wellness.png"
+            alt="Wellness First - Your Journey to Better Living"
+            class="wellness-logo" />
+    </NavLink>
+
+        @if (CurrentUser.IsClient || CurrentUser.IsStaff)
+        {
+            <div class="navbar-account">
+                <span>@CurrentUser.User?.FullName</span>
+            </div>
+        }
+        else
+        {
+            <nav class="nav-links" aria-label="Main navigation">
+                <button type="button"
+                        class="nav-link-button"
+                        @onclick="GoHome">
+                    Home
+                </button>
+                <button type="button"
+                        class="nav-link-button"
+                        @onclick="GoServices">
+                    Services
+                </button>
+                <button type="button"
+                        class="nav-link-button"
+                        @onclick="GoBooking">
+                    Booking
+                </button>
+
+                @if (CurrentUser.IsStaff)
+                {
+                    <button type="button"
+                            class="nav-link-button"
+                            @onclick="GoStaff">
+                        Staff
+                    </button>
+                }
+
+                @if (CurrentUser.IsAdmin)
+                {
+                    <button type="button"
+                            class="nav-link-button"
+                            @onclick="GoAdmin">
+                        Admin
+                    </button>
+                }
+
+                @if (CurrentUser.IsAuthenticated)
+                {
+                    <button type="button"
+                            class="nav-link-button"
+                            @onclick="GoProfile">
+                        My Profile
+                    </button>
+                    <form method="post"
+                          action="/auth/signout"
+                          data-enhance="false">
+                        <AntiforgeryToken />
+                        <button type="submit" class="link-button">
+                            Sign out
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <div class="nav-actions">
+                        <button type="button"
+                                class="signin-link"
+                                @onclick="GoSignIn">
+                            Sign in
+                        </button>
+                        <button type="button"
+                                class="nav-button"
+                                @onclick="GoRegister">
+                            Get Started
+                        </button>
+                    </div>
+                }
+            </nav>
+        }
+
+    </div>
+
+</header>
+
+@if (CurrentUser.IsClient)
+{
+    <div class="workspace-app-shell">
+        <aside class="workspace-sidebar" aria-label="Client workspace navigation">
+            <nav class="workspace-sidebar-nav">
+                <section class="client-nav-group" aria-labelledby="workspace-nav-heading">
+                    <h2 id="workspace-nav-heading">Workspace</h2>
+                    <NavLink href="/dashboard" Match="NavLinkMatch.All" class="client-nav-link">
+                        Dashboard
+                    </NavLink>
+                    <NavLink href="/profile" class="client-nav-link">
+                        My Profile
+                    </NavLink>
+                </section>
+
+                <section class="client-nav-group" aria-labelledby="wellness-nav-heading">
+                    <h2 id="wellness-nav-heading">Wellness</h2>
+                    <NavLink href="/records" class="client-nav-link">
+                        Wellness Records
+                    </NavLink>
+                    <NavLink href="/goals" class="client-nav-link">
+                        Goals &amp; Routines
+                    </NavLink>
+                    <NavLink href="/action-plans" class="client-nav-link">
+                        Action Plans
+                    </NavLink>
+                    <NavLink href="/progress" class="client-nav-link">
+                        Progress
+                    </NavLink>
+                </section>
+
+                <section class="client-nav-group" aria-labelledby="appointments-nav-heading">
+                    <h2 id="appointments-nav-heading">Appointments</h2>
+                    <NavLink href="/appointments" class="client-nav-link">
+                        My Appointments
+                    </NavLink>
+                    <NavLink href="/booking" class="client-nav-link">
+                        Book Appointment
+                    </NavLink>
+                    <NavLink href="/payments" class="client-nav-link">
+                        Payments &amp; Receipts
+                    </NavLink>
+                </section>
+
+                <section class="client-nav-group" aria-labelledby="account-nav-heading">
+                    <h2 id="account-nav-heading">Account</h2>
+                    <NavLink href="/notifications" class="client-nav-link">
+                        Notifications
+                    </NavLink>
+                    <span class="client-nav-link disabled" aria-disabled="true">
+                        Privacy &amp; Settings <small>Coming soon</small>
+                    </span>
+                    <form method="post"
+                          action="/auth/signout"
+                          data-enhance="false">
+                        <AntiforgeryToken />
+                        <button type="submit" class="client-nav-link sign-out">
+                            Sign Out
+                        </button>
+                    </form>
+                </section>
+            </nav>
+        </aside>
+
+        <main class="content workspace-app-content">
+            @Body
+        </main>
+    </div>
+}
+else if (CurrentUser.IsStaff)
+{
+    <div class="workspace-app-shell">
+        <aside class="workspace-sidebar" aria-label="Staff workspace navigation">
+            <nav class="workspace-sidebar-nav">
+                <section class="client-nav-group" aria-labelledby="staff-workspace-nav-heading">
+                    <h2 id="staff-workspace-nav-heading">Workspace</h2>
+                    <NavLink href="/staff" Match="NavLinkMatch.All" class="client-nav-link">
+                        Staff Dashboard
+                    </NavLink>
+                </section>
+
+                <section class="client-nav-group" aria-labelledby="staff-work-nav-heading">
+                    <h2 id="staff-work-nav-heading">My Work</h2>
+                    <NavLink href="/staff/clients" class="client-nav-link">
+                        Assigned Clients
+                    </NavLink>
+                    <NavLink href="/staff#staff-appointments" class="client-nav-link">
+                        Appointments
+                    </NavLink>
+                    <NavLink href="/staff/records" class="client-nav-link">
+                        Wellness Records
+                    </NavLink>
+                    <NavLink href="/staff/action-plans" class="client-nav-link">
+                        Action Plans
+                    </NavLink>
+                    @if (CurrentUser.HasPermission("payments.collect"))
+                    {
+                        <NavLink href="/staff/payments" class="client-nav-link">
+                            Facility Payments
+                        </NavLink>
+                    }
+                </section>
+
+                <section class="client-nav-group" aria-labelledby="staff-services-nav-heading">
+                    <h2 id="staff-services-nav-heading">Services</h2>
+                    <NavLink href="/services" class="client-nav-link">
+                        Wellness Services
+                    </NavLink>
+                </section>
+
+                <section class="client-nav-group" aria-labelledby="staff-account-nav-heading">
+                    <h2 id="staff-account-nav-heading">Account</h2>
+                    <NavLink href="/profile" class="client-nav-link">
+                        My Profile
+                    </NavLink>
+                     <NavLink href="/staff/change-password"" class="client-nav-link">
+                        Change Password
+                    </NavLink>
+                    <NavLink href="/notifications" class="client-nav-link">
+                        Notifications
+                    </NavLink>
+                    <form method="post"
+                          action="/auth/signout"
+                          data-enhance="false">
+                        <AntiforgeryToken />
+                        <button type="submit" class="client-nav-link sign-out">
+                            Sign Out
+                        </button>
+                    </form>
+                </section>
+            </nav>
+        </aside>
+
+        <main class="content workspace-app-content">
+            @Body
+        </main>
+    </div>
+}
+else if (CurrentUser.IsAdmin)
+{
+    <div class="workspace-app-shell admin-workspace-shell">
+        <aside class="workspace-sidebar" aria-label="Administrator workspace navigation">
+            <nav class="workspace-sidebar-nav">
+                <section class="client-nav-group" aria-labelledby="admin-workspace-nav-heading">
+                    <h2 id="admin-workspace-nav-heading">Workspace</h2>
+                    <NavLink href="/admin" Match="NavLinkMatch.All" class="client-nav-link">
+                        Admin Dashboard
+                    </NavLink>
+                </section>
+
+                <section class="client-nav-group" aria-labelledby="admin-operations-nav-heading">
+                    <h2 id="admin-operations-nav-heading">Operations</h2>
+                    <NavLink href="/admin/availability" class="client-nav-link">
+                        Availability
+                    </NavLink>
+                    <NavLink href="/admin/payments" class="client-nav-link">
+                        Payments &amp; Refunds
+                    </NavLink>
+                    <NavLink href="/admin#admin-appointments" class="client-nav-link">
+                        Staff Assignments
+                    </NavLink>
+
+                    <NavLink href="/admin/staff-management" class="client-nav-link">
+                        Staff Management
+                    </NavLink>
+                </section>
+
+                <section class="client-nav-group" aria-labelledby="admin-account-nav-heading">
+                    <h2 id="admin-account-nav-heading">Account</h2>
+                    <NavLink href="/services" class="client-nav-link">
+                        Wellness Services
+                    </NavLink>
+                    <NavLink href="/profile" class="client-nav-link">
+                        My Profile
+                    </NavLink>
+                    <NavLink href="/notifications" class="client-nav-link">
+                        Notifications
+                    </NavLink>
+                    <form method="post"
+                          action="/auth/signout"
+                          data-enhance="false">
+                        <AntiforgeryToken />
+                        <button type="submit" class="client-nav-link sign-out">
+                            Sign Out
+                        </button>
+                    </form>
+                </section>
+            </nav>
+        </aside>
+
+        <main class="content workspace-app-content">
+            @Body
+        </main>
+    </div>
+}
+else
+{
+    <main class="content">
+        @Body
+    </main>
+}
+
+
+<footer class="footer">
+
+    <div class="footer-inner">
+
+        <span>
+           © @DateTime.Now.Year Wellness First. All rights reserved.
+        </span>
+
+    </div>
+
+</footer>
+
+
+@code {
+
+    protected override Task OnInitializedAsync()
+    {
+        return CurrentUser.InitializeAsync();
+    }
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+
+    private void GoServices()
+    {
+        Navigation.NavigateTo("/services");
+    }
+
+
+    private void GoBooking()
+    {
+        Navigation.NavigateTo("/booking");
+    }
+
+
+    private void GoStaff()
+    {
+        Navigation.NavigateTo("/staff");
+    }
+
+
+    private void GoAdmin()
+    {
+        Navigation.NavigateTo("/admin");
+    }
+
+
+    private void GoProfile()
+    {
+        Navigation.NavigateTo("/profile");
+    }
+
+
+    private void GoSignIn()
+    {
+        Navigation.NavigateTo("/signin");
+    }
+
+
+    private void GoRegister()
+    {
+        Navigation.NavigateTo("/register");
+    }
+
+
+}

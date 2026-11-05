@@ -1,0 +1,74 @@
+@page "/records"
+@attribute [Authorize(Policy = "ClientOnly")]
+@using WellnessPlatform.Models
+@inject CurrentUserService CurrentUser
+@inject WellnessService Wellness
+
+<PageTitle>My Wellness Records | Wellness Platform</PageTitle>
+
+<div class="client-dashboard">
+    <section class="dashboard-hero">
+        <div class="dashboard-hero-content">
+            <div class="dashboard-eyebrow">WELLNESS</div>
+            <h1>My Wellness Records</h1>
+            <p>Review wellness records saved to your account.</p>
+        </div>
+        <div class="dashboard-hero-action">
+            <span class="staff-role-badge">@records.Count records</span>
+        </div>
+    </section>
+
+    <section class="dashboard-panel staff-records-panel">
+        <div class="panel-header">
+            <div>
+                <span class="panel-eyebrow">PERSONAL HISTORY</span>
+                <h2>Your records</h2>
+                <p>Only records belonging to your account are shown.</p>
+            </div>
+        </div>
+
+        @if (records.Count == 0)
+        {
+            <div class="empty-state">
+                <h3>No wellness records yet</h3>
+                <p>Records saved for you will appear here.</p>
+            </div>
+        }
+        else
+        {
+            <div class="staff-record-list">
+                @foreach (var record in records)
+                {
+                    <article class="staff-record-card">
+                        <div class="staff-record-heading">
+                            <h3>@record.Title</h3>
+                            <time datetime="@record.RecordedAt.ToString("O")">
+                                @record.RecordedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                            </time>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(record.Notes))
+                        {
+                            <p>@record.Notes</p>
+                        }
+                        else
+                        {
+                            <p class="muted">No additional notes.</p>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private List<WellnessRecord> records = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.User is not null)
+        {
+            records = await Wellness.GetRecordsAsync(CurrentUser.User.Id);
+        }
+    }
+}

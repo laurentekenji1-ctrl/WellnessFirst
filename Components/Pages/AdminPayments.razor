@@ -1,0 +1,411 @@
+
+@page "/admin/payments"
+@attribute [Authorize(Policy = "AdminOnly")]
+@using WellnessPlatform.Models
+@using WellnessPlatform.Services
+@inject WellnessService Wellness
+
+<PageTitle>Payments &amp; Refunds | Wellness Platform</PageTitle>
+
+<div class="admin-payments-page">
+    <div class="admin-payments-container">
+
+        <header class="admin-payments-header">
+            <div>
+                <span class="admin-payments-eyebrow">ADMINISTRATION</span>
+                <h1>Payments &amp; refunds</h1>
+                <p>
+                    Manage facility collections, review transaction records,
+                    and process approved Stripe refunds.
+                </p>
+            </div>
+            <div class="admin-payments-header-icon">
+                <span>₱</span>
+            </div>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <div class="admin-payments-alert" role="status">
+                <span class="admin-payments-alert-icon">✓</span>
+                <span>@statusMessage</span>
+            </div>
+        }
+
+        <section class="admin-payments-section">
+            <div class="admin-payments-section-heading">
+                <div>
+                    <span class="admin-payments-section-eyebrow">IN-PERSON TRANSACTIONS</span>
+                    <h2>Facility payments</h2>
+                    <p>
+                        Record a facility payment only after confirming that
+                        the funds have been collected.
+                    </p>
+                </div>
+                <span class="admin-payments-count">
+                    @collectionAppointments.Count
+                    @(collectionAppointments.Count == 1 ? "appointment" : "appointments")
+                </span>
+            </div>
+
+            @if (collectionAppointments.Count == 0)
+            {
+                <div class="admin-payments-empty">
+                    <div class="admin-payments-empty-icon">₱</div>
+                    <h3>No appointments available</h3>
+                    <p>Eligible appointments for facility payment will appear here.</p>
+                </div>
+            }
+            else
+            {
+                <div class="admin-facility-list">
+                    @foreach (var appointment in collectionAppointments)
+                    {
+                        var latestPayment = appointment.Payments
+                            .OrderByDescending(payment => payment.Id)
+                            .FirstOrDefault();
+
+                        var paid = latestPayment?.Status is PaymentStatus.Paid
+                            or PaymentStatus.PartiallyRefunded;
+
+                        var activeCheckout = appointment.Payments.Any(payment =>
+                            payment.Status == PaymentStatus.Pending &&
+                            !string.IsNullOrWhiteSpace(payment.CheckoutUrl) &&
+                            payment.CheckoutExpiresAt > DateTime.UtcNow);
+
+                        <article class="admin-facility-card">
+                            <div class="admin-facility-main">
+                                <div class="admin-facility-topline">
+                                    <span class="admin-payments-label">APPOINTMENT</span>
+                                    <span class="admin-appointment-status @appointment.Status.ToString().ToLowerInvariant()">
+                                        @appointment.Status
+                                    </span>
+                                </div>
+
+                                <h3>
+                                    @(appointment.Client?.FullName ?? "Client")
+                                </h3>
+                                <p class="admin-facility-service">
+                                    @(appointment.ServiceItem?.Name ?? "Wellness service")
+                                </p>
+
+                                <div class="admin-facility-meta">
+                                    <span>
+                                        <span class="meta-icon">◷</span>
+                                        @appointment.StartAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")
+                                    </span>
+                                    <span>
+                                        <span class="meta-icon">₱</span>
+                                        PHP @appointment.ServiceItem?.Price.ToString("N2")
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="admin-facility-action">
+                                @if (paid)
+                                {
+                                    <span class="admin-payment-state state-paid">
+                                        <span>✓</span> Paid
+                                    </span>
+                                }
+                                else if (activeCheckout)
+                                {
+                                    <div class="admin-payment-state state-pending">
+                                        <strong>Online checkout active</strong>
+                                        <small>Wait for payment completion or checkout expiry.</small>
+                                    </div>
+                                }
+                                else if (appointment.ServiceItem is not null)
+                                {
+                                    <form method="post"
+                                          action="@($"/payments/facility/{appointment.Id}")"
+                                          data-enhance="false"
+                                          class="admin-collection-form">
+                                        <AntiforgeryToken />
+
+                                        <label class="admin-confirm-label">
+                                            <input type="checkbox" name="Confirm" value="true" required />
+                                            <span>I confirm that payment was collected.</span>
+                                        </label>
+
+                                        <button class="admin-payment-button" type="submit">
+                                            Record PHP @appointment.ServiceItem.Price.ToString("N2")
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="admin-payments-section">
+            <div class="admin-payments-section-heading">
+                <div>
+                    <span class="admin-payments-section-eyebrow">TRANSACTION MANAGEMENT</span>
+                    <h2>Payment records</h2>
+                    <p>
+                        Review payment activity, transaction details, and refund history.
+                    </p>
+                </div>
+                <span class="admin-payments-count">
+                    @payments.Count
+                    @(payments.Count == 1 ? "record" : "records")
+                </span>
+            </div>
+
+            @if (payments.Count == 0)
+            {
+                <div class="admin-payments-empty">
+                    <div class="admin-payments-empty-icon">▤</div>
+                    <h3>No payment records yet</h3>
+                    <p>Collected payments and online transactions will appear here.</p>
+                </div>
+            }
+            else
+            {
+                <div class="admin-payment-record-list">
+                    @foreach (var payment in payments)
+                    {
+                        var refundedMinor = payment.Refunds
+                            .Where(refund => refund.Status == PaymentRefundStatus.Succeeded)
+                            .Sum(refund => refund.AmountMinor);
+
+                        var reservedMinor = payment.Refunds
+                            .Where(refund => refund.Status is PaymentRefundStatus.Pending or PaymentRefundStatus.Succeeded)
+                            .Sum(refund => refund.AmountMinor);
+
+                        var remainingMinor = (payment.ChargedAmountMinor ?? 0) - reservedMinor;
+
+                        <article class="admin-payment-record">
+                            <div class="admin-payment-record-header">
+                                <div class="admin-payment-record-title">
+                                    <span class="admin-payments-label">PAYMENT RECORD #@payment.Id</span>
+                                    <h3>
+                                        @(payment.Appointment?.Client?.FullName ?? "Client")
+                                    </h3>
+                                    <p>
+                                        @(payment.Appointment?.ServiceItem?.Name ?? "Appointment")
+                                    </p>
+                                </div>
+
+                                <span class="admin-record-status @GetPaymentStatusClass(payment.Status)">
+                                    @payment.Status
+                                </span>
+                            </div>
+
+                            <div class="admin-payment-details-grid">
+                                <div class="admin-payment-detail">
+                                    <span>Receipt number</span>
+                                    <strong>
+                                        @(string.IsNullOrWhiteSpace(payment.ReceiptNumber)
+                                            ? "Pending"
+                                            : payment.ReceiptNumber)
+                                    </strong>
+                                </div>
+
+                                <div class="admin-payment-detail">
+                                    <span>Payment method</span>
+                                    <strong>@payment.Method</strong>
+                                </div>
+
+                                <div class="admin-payment-detail">
+                                    <span>Base amount</span>
+                                    <strong>
+                                        @payment.Currency.ToUpperInvariant()
+                                        @payment.Amount.ToString("N2")
+                                    </strong>
+                                </div>
+
+                                @if (payment.ChargedAmountMinor.HasValue &&
+                                    !string.IsNullOrWhiteSpace(payment.ChargedCurrency))
+                                {
+                                    <div class="admin-payment-detail">
+                                        <span>Charged amount</span>
+                                        <strong>
+                                            @CurrencyAmountFormatter.FormatMinorUnits(
+                                                payment.ChargedAmountMinor.Value,
+                                                payment.ChargedCurrency)
+                                        </strong>
+                                    </div>
+                                }
+
+                                @if (refundedMinor > 0 &&
+                                    !string.IsNullOrWhiteSpace(payment.ChargedCurrency))
+                                {
+                                    <div class="admin-payment-detail">
+                                        <span>Successfully refunded</span>
+                                        <strong class="admin-refunded-amount">
+                                            @CurrencyAmountFormatter.FormatMinorUnits(
+                                                refundedMinor,
+                                                payment.ChargedCurrency)
+                                        </strong>
+                                    </div>
+                                }
+                            </div>
+
+                            @if (payment.Method == "Stripe" &&
+                                !string.IsNullOrWhiteSpace(payment.StripePaymentIntentId) &&
+                                remainingMinor > 0 &&
+                                payment.Status is PaymentStatus.Paid or PaymentStatus.PartiallyRefunded)
+                            {
+                                <div class="admin-refund-panel">
+                                    <div class="admin-refund-heading">
+                                        <div>
+                                            <span class="admin-payments-section-eyebrow">STRIPE MANAGEMENT</span>
+                                            <h4>Request a refund</h4>
+                                        </div>
+                                        <span class="admin-refund-available">
+                                            Available:
+                                            @CurrencyAmountFormatter.FormatMinorUnits(
+                                                remainingMinor,
+                                                payment.ChargedCurrency!)
+                                        </span>
+                                    </div>
+
+                                    <form method="post"
+                                          action="@($"/admin/payments/{payment.Id}/refund")"
+                                          data-enhance="false"
+                                          class="admin-refund-form">
+                                        <AntiforgeryToken />
+
+                                        <div class="admin-refund-fields">
+                                            <label>
+                                                Partial refund amount
+                                                <input type="number"
+                                                       name="Amount"
+                                                       min="0.001"
+                                                       step="any"
+                                                       placeholder="Leave blank for full remaining refund" />
+                                                <small>
+                                                    Leave blank to refund the remaining balance.
+                                                </small>
+                                            </label>
+
+                                            <label>
+                                                Refund reason
+                                                <input type="text"
+                                                       name="Reason"
+                                                       minlength="3"
+                                                       maxlength="500"
+                                                       placeholder="Enter the reason for this refund"
+                                                       required />
+                                            </label>
+                                        </div>
+
+                                        <label class="admin-confirm-label admin-refund-confirm">
+                                            <input type="checkbox" name="Confirm" value="true" required />
+                                            <span>I approve this refund request.</span>
+                                        </label>
+
+                                        <button class="admin-refund-button" type="submit">
+                                            Request Stripe refund
+                                        </button>
+                                    </form>
+                                </div>
+                            }
+
+                            @if (payment.Refunds.Count > 0)
+                            {
+                                <div class="admin-refund-history">
+                                    <div class="admin-refund-history-heading">
+                                        <h4>Refund history</h4>
+                                        <span>@payment.Refunds.Count @(payment.Refunds.Count == 1 ? "entry" : "entries")</span>
+                                    </div>
+
+                                    @foreach (var refund in payment.Refunds.OrderByDescending(item => item.CreatedAt))
+                                    {
+                                        <div class="admin-refund-item">
+                                            <div class="admin-refund-item-info">
+                                                <strong>
+                                                    @CurrencyAmountFormatter.FormatMinorUnits(
+                                                        refund.AmountMinor,
+                                                        refund.Currency)
+                                                </strong>
+                                                <span>
+                                                    @refund.Status ·
+                                                    @refund.CreatedAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")
+                                                </span>
+                                                <small>@refund.Reason</small>
+                                            </div>
+
+                                            @if (refund.Status == PaymentRefundStatus.Pending)
+                                            {
+                                                <form method="post"
+                                                      action="@($"/admin/payments/refunds/{refund.Id}/retry")"
+                                                      data-enhance="false">
+                                                    <AntiforgeryToken />
+                                                    <button class="admin-refund-retry-button" type="submit">
+                                                        Check or retry
+                                                    </button>
+                                                </form>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <div class="admin-payments-footer-note">
+            <span>🔒</span>
+            <p>
+                Always verify the original transaction and refund details before
+                approving financial adjustments.
+            </p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Appointment> collectionAppointments = [];
+    private List<Payment> payments = [];
+
+    [SupplyParameterFromQuery(Name = "collection")]
+    public string? CollectionResult { get; set; }
+
+    [SupplyParameterFromQuery(Name = "refund")]
+    public string? RefundResult { get; set; }
+
+    private string? statusMessage => CollectionResult switch
+    {
+        "success" => "Facility payment recorded and receipt issued.",
+        "invalid" => "The payment or refund was not accepted. Review the appointment/payment status and try again.",
+        "form-expired" => "The form expired. Refresh the page and try again.",
+        _ => RefundResult switch
+        {
+            "requested" => "The refund request was submitted to Stripe.",
+            "reconciled" => "The refund status was refreshed from Stripe.",
+            "uncertain" => "Stripe did not confirm the response. The request remains pending; check or retry it below.",
+            "invalid" => "The refund was not accepted. Check its amount, reason, and payment status.",
+            "unavailable" => "Stripe refund processing is not configured. Contact support.",
+            "form-expired" => "The refund form expired. Refresh the page and try again.",
+            _ => null
+        }
+    };
+
+    private static string GetPaymentStatusClass(PaymentStatus status)
+    {
+        return status switch
+        {
+            PaymentStatus.Paid => "status-paid",
+            PaymentStatus.PartiallyRefunded => "status-partial",
+            PaymentStatus.Refunded => "status-refunded",
+            PaymentStatus.Failed => "status-failed",
+            _ => "status-pending"
+        };
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        collectionAppointments =
+            await Wellness.GetPaymentCollectionAppointmentsAsync();
+
+        payments =
+            await Wellness.GetPaymentsForManagementAsync();
+    }
+}

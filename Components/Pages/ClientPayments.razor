@@ -1,0 +1,159 @@
+@page "/payments"
+@attribute [Authorize(Policy = "ClientOnly")]
+@using WellnessPlatform.Models
+@using WellnessPlatform.Services
+@inject CurrentUserService CurrentUser
+@inject WellnessService Wellness
+
+<PageTitle>Payments &amp; Receipts | Wellness Platform</PageTitle>
+
+<div class="client-dashboard">
+    <section class="dashboard-hero">
+        <div class="dashboard-hero-content">
+            <div class="dashboard-eyebrow">APPOINTMENTS</div>
+            <h1>Payments &amp; Receipts</h1>
+            <p>Review payment status and receipts for your appointments.</p>
+        </div>
+        <div class="dashboard-hero-action">
+            <span class="staff-role-badge">@payments.Count payment records</span>
+        </div>
+    </section>
+
+    <section class="dashboard-panel staff-records-panel">
+        <div class="panel-header">
+            <div>
+                <span class="panel-eyebrow">PAYMENT HISTORY</span>
+                <h2>Your payments</h2>
+                <p>Online card payments are confirmed by a signed Stripe webhook.</p>
+            </div>
+        </div>
+
+        @if (payments.Count == 0)
+        {
+            <div class="empty-state">
+                <h3>No payments yet</h3>
+                <p>Payment records will appear here after you pay for an appointment.</p>
+                <a class="button button-secondary" href="/appointments">View appointments</a>
+            </div>
+        }
+        else
+        {
+            <div class="staff-record-list">
+                @foreach (var payment in payments)
+                {
+                    <article class="staff-record-card payment-record-card">
+                        <div class="staff-record-heading">
+                            <div>
+                                <span class="panel-eyebrow">
+                                    @(payment.Appointment?.ServiceItem?.Name ?? "Appointment")
+                                </span>
+                                <h3>
+                                @GetPaymentHeading(payment.Status)
+                                </h3>
+                            </div>
+                            <span class="status-badge @GetPaymentStatusClass(payment.Status)">
+                                @payment.Status
+                            </span>
+                        </div>
+                        <p>
+                            Base amount: PHP @payment.Amount.ToString("N2")
+                            @if (payment.Appointment is not null)
+                            {
+                                <span> · @payment.Appointment.StartAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+                            }
+                        </p>
+                        @if (payment.Status is PaymentStatus.Paid
+                            or PaymentStatus.PartiallyRefunded
+                            or PaymentStatus.Refunded)
+                        {
+                            <div class="payment-receipt-details">
+                                @if (payment.ChargedAmountMinor.HasValue &&
+                                    !string.IsNullOrWhiteSpace(payment.ChargedCurrency))
+                                {
+                                    <span>
+                                        Charged:
+                                        <strong>
+                                            @CurrencyAmountFormatter.FormatMinorUnits(
+                                                payment.ChargedAmountMinor.Value,
+                                                payment.ChargedCurrency)
+                                        </strong>
+                                    </span>
+                                }
+                                <span>Receipt: <strong>@payment.ReceiptNumber</strong></span>
+                                @if (payment.PaidAt.HasValue)
+                                {
+                                    <span>Paid @payment.PaidAt.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+                                }
+                                @if (payment.Refunds.Any(refund =>
+                                    refund.Status == PaymentRefundStatus.Succeeded))
+                                {
+                                    var refundedAmount = payment.Refunds
+                                        .Where(refund => refund.Status == PaymentRefundStatus.Succeeded)
+                                        .Sum(refund => refund.AmountMinor);
+                                    <span>
+                                        Refunded:
+                                        <strong>
+                                            @CurrencyAmountFormatter.FormatMinorUnits(
+                                                refundedAmount,
+                                                payment.ChargedCurrency ?? payment.Currency)
+                                        </strong>
+                                    </span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(payment.StripePaymentIntentId))
+                                {
+                                    <span>Processor: Stripe · @payment.Currency.ToUpperInvariant() base price</span>
+                                }
+                                @foreach (var refund in payment.Refunds.OrderByDescending(item => item.CreatedAt))
+                                {
+                                    <span>
+                                        Refund @CurrencyAmountFormatter.FormatMinorUnits(
+                                            refund.AmountMinor,
+                                            refund.Currency)
+                                        · @refund.Status
+                                    </span>
+                                }
+                            </div>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private List<Payment> payments = [];
+
+    private static string GetPaymentHeading(PaymentStatus status)
+    {
+        return status switch
+        {
+            PaymentStatus.Paid => "Payment received",
+            PaymentStatus.PartiallyRefunded => "Partially refunded",
+            PaymentStatus.Refunded => "Refunded",
+            PaymentStatus.Failed => "Payment incomplete",
+            _ => "Payment pending"
+        };
+    }
+
+    private static string GetPaymentStatusClass(PaymentStatus status)
+    {
+        return status switch
+        {
+            PaymentStatus.Paid => "status-completed",
+            PaymentStatus.PartiallyRefunded or PaymentStatus.Refunded =>
+                "status-cancelled",
+            PaymentStatus.Failed => "status-cancelled",
+            _ => "status-pending"
+        };
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.User is not null)
+        {
+            payments = await Wellness.GetClientPaymentsAsync(
+                CurrentUser.User.Id);
+        }
+    }
+}

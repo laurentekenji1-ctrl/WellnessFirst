@@ -1,0 +1,139 @@
+@page "/staff/records"
+@attribute [Authorize(Policy = "StaffRecordsView")]
+@using WellnessPlatform.Models
+@inject CurrentUserService CurrentUser
+@inject WellnessService Wellness
+
+<PageTitle>Client Wellness Records | Wellness Platform</PageTitle>
+
+<div class="client-dashboard staff-dashboard">
+    <section class="dashboard-hero">
+        <div class="dashboard-hero-content">
+            <div class="dashboard-eyebrow">MY WORK</div>
+            <h1>Wellness Records</h1>
+            <p>
+                Review records for clients assigned to you through their appointments.
+            </p>
+        </div>
+        <div class="dashboard-hero-action">
+            <span class="staff-role-badge">@clients.Count assigned clients</span>
+        </div>
+    </section>
+
+    @if (clients.Count == 0)
+    {
+        <section class="dashboard-panel empty-state">
+            <div class="empty-icon" aria-hidden="true">📝</div>
+            <h3>No assigned clients yet</h3>
+            <p>
+                Client records become available here when an appointment is assigned to you.
+            </p>
+        </section>
+    }
+    else
+    {
+        <section class="dashboard-panel staff-records-panel">
+            <div class="panel-header">
+                <div>
+                    <span class="panel-eyebrow">AUTHORIZED CLIENT RECORDS</span>
+                    <h2>Records</h2>
+                    <p>Only clients with appointments assigned to you are shown.</p>
+                </div>
+                <label class="staff-record-filter">
+                    <span>Client</span>
+                    <select class="form-control"
+                            @bind="selectedClientId"
+                            @bind:after="LoadRecordsAsync">
+                        <option value="0">All assigned clients</option>
+                        @foreach (var client in clients)
+                        {
+                            <option value="@client.Id">@client.FullName</option>
+                        }
+                    </select>
+                </label>
+            </div>
+
+            @if (records.Count == 0)
+            {
+                <div class="empty-state">
+                    <div class="empty-icon" aria-hidden="true">🗂</div>
+                    <h3>No wellness records found</h3>
+                    <p>
+                        There are no records for
+                        @(selectedClientId == 0 ? "your assigned clients" : "this client")
+                        yet.
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="staff-record-list">
+                    @foreach (var record in records)
+                    {
+                        <article class="staff-record-card">
+                            <div class="staff-record-heading">
+                                <div>
+                                    <span class="panel-eyebrow">@record.ClientName</span>
+                                    <h3>@record.Title</h3>
+                                </div>
+                                <time datetime="@record.RecordedAt.ToString("O")">
+                                    @record.RecordedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                                </time>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(record.Notes))
+                            {
+                                <p>@record.Notes</p>
+                            }
+                            else
+                            {
+                                <p class="muted">No additional notes.</p>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private List<StaffAssignedClient> clients = [];
+    private List<StaffWellnessRecordView> records = [];
+    private int selectedClientId;
+
+    [SupplyParameterFromQuery(Name = "clientId")]
+    public int? RequestedClientId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!CurrentUser.IsStaff || CurrentUser.User is null)
+        {
+            return;
+        }
+
+        clients = await Wellness.GetStaffClientsAsync(CurrentUser.User.Id);
+        if (RequestedClientId.HasValue &&
+            clients.Any(client => client.Id == RequestedClientId.Value))
+        {
+            selectedClientId = RequestedClientId.Value;
+        }
+
+        await LoadRecordsAsync();
+    }
+
+    private async Task LoadRecordsAsync()
+    {
+        if (!CurrentUser.IsStaff || CurrentUser.User is null)
+        {
+            return;
+        }
+
+        int? clientId = selectedClientId == 0
+            ? null
+            : selectedClientId;
+
+        records = await Wellness.GetStaffWellnessRecordsAsync(
+            CurrentUser.User.Id,
+            clientId);
+    }
+}

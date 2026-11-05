@@ -1,0 +1,280 @@
+@page "/register"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Net.Mail
+@using WellnessPlatform.Models
+
+@inject UserManager<AppUser> UserManager
+@inject AccountEmailService AccountEmail
+@inject ILogger<Register> Logger
+
+<PageTitle>Register | Wellness Platform</PageTitle>
+
+<div class="auth-page">
+
+    <div class="auth-card">
+
+        <div class="auth-header">
+
+            <span class="eyebrow">
+                WELLNESS PLATFORM
+            </span>
+
+            <h1>Create your account</h1>
+
+            <p>
+                Create an account to book wellness services
+                and manage your wellness journey. You will need to verify your email.
+            </p>
+
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="alert">
+                @errorMessage
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="success">
+                @successMessage
+            </div>
+        }
+
+        <EditForm Model="registerModel"
+                  OnValidSubmit="RegisterAsync">
+
+            <DataAnnotationsValidator />
+
+            <div class="form-group">
+
+                <label for="fullName">
+                    Full Name
+                </label>
+
+                <InputText id="fullName"
+                           class="form-control"
+                           @bind-Value="registerModel.FullName" />
+
+                <ValidationMessage
+                    For="@(() => registerModel.FullName)" />
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="email">
+                    Email
+                </label>
+
+                <InputText id="email"
+                           type="email"
+                           class="form-control"
+                           @bind-Value="registerModel.Email" />
+
+                <ValidationMessage
+                    For="@(() => registerModel.Email)" />
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="password">
+                    Password
+                </label>
+
+                <InputText id="password"
+                           type="password"
+                           class="form-control"
+                           @bind-Value="registerModel.Password" />
+
+                <ValidationMessage
+                    For="@(() => registerModel.Password)" />
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="confirmPassword">
+                    Confirm Password
+                </label>
+
+                <InputText id="confirmPassword"
+                           type="password"
+                           class="form-control"
+                           @bind-Value="registerModel.ConfirmPassword" />
+
+                <ValidationMessage
+                    For="@(() => registerModel.ConfirmPassword)" />
+
+            </div>
+
+            <button type="submit"
+                    class="button button-primary"
+                    disabled="@loading">
+
+                @if (loading)
+                {
+                    <span>Creating account...</span>
+                }
+                else
+                {
+                    <span>Create Account</span>
+                }
+
+            </button>
+
+        </EditForm>
+
+        <div class="auth-footer">
+
+            <span>
+                Already have an account?
+            </span>
+
+            <a href="/signin">
+                Sign in
+            </a>
+
+        </div>
+
+    </div>
+
+</div>
+
+@code {
+
+    private RegisterModel registerModel = new();
+
+    private bool loading;
+
+    private string? errorMessage;
+
+    private string? successMessage;
+
+    private async Task RegisterAsync()
+    {
+        errorMessage = null;
+        successMessage = null;
+        loading = true;
+
+        try
+        {
+            if (!AccountEmail.IsConfigured)
+            {
+                errorMessage =
+                    "Account creation is temporarily unavailable because email delivery is not configured.";
+                return;
+            }
+
+            var email = registerModel.Email.Trim().ToLowerInvariant();
+            var fullName = registerModel.FullName.Trim();
+
+            var user = new AppUser
+            {
+                FullName = fullName,
+                Email = email,
+                UserName = email,
+                Role = UserRole.Client,
+                EmailVerified = false,
+                Active = true,
+                LockoutEnabled = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var createResult =
+                await UserManager.CreateAsync(
+                    user,
+                    registerModel.Password);
+
+            if (!createResult.Succeeded)
+            {
+                errorMessage = string.Join(
+                    " ",
+                    createResult.Errors.Select(error => error.Description));
+
+                return;
+            }
+
+            var roleResult = await UserManager.AddToRoleAsync(
+                user,
+                UserRole.Client.ToString());
+
+            if (!roleResult.Succeeded)
+            {
+                var deleteResult = await UserManager.DeleteAsync(user);
+                if (!deleteResult.Succeeded)
+                {
+                    Logger.LogError(
+                        "Failed to clean up newly registered user {UserId} after role assignment failed: {Errors}",
+                        user.Id,
+                        string.Join("; ", deleteResult.Errors.Select(error => error.Description)));
+                }
+
+                errorMessage =
+                    "The account could not be configured. Please contact support.";
+                return;
+            }
+
+            try
+            {
+                await AccountEmail.SendConfirmationEmailAsync(user);
+                successMessage =
+                    "Your account was created. Check your email for a verification link before signing in.";
+            }
+            catch (SmtpException exception)
+            {
+                Logger.LogError(
+                    exception,
+                    "Verification email delivery failed for new user {UserId}.",
+                    user.Id);
+                errorMessage =
+                    "Your account was created, but the verification email could not be delivered. Please try the resend link later.";
+            }
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    public class RegisterModel
+    {
+        [Required(
+            ErrorMessage =
+                "Full name is required.")]
+        [MinLength(
+            2,
+            ErrorMessage =
+                "Full name must be at least 2 characters.")]
+        public string FullName { get; set; } = "";
+
+        [Required(
+            ErrorMessage =
+                "Email is required.")]
+        [EmailAddress(
+            ErrorMessage =
+                "Please enter a valid email address.")]
+        public string Email { get; set; } = "";
+
+        [Required(
+            ErrorMessage =
+                "Password is required.")]
+        [MinLength(
+            8,
+            ErrorMessage =
+                "Password must be at least 8 characters.")]
+        public string Password { get; set; } = "";
+
+        [Required(
+            ErrorMessage =
+                "Please confirm your password.")]
+        [Compare(
+            nameof(Password),
+            ErrorMessage =
+                "Passwords do not match.")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

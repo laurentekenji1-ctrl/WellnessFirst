@@ -1,0 +1,139 @@
+@page "/notifications"
+@attribute [Authorize]
+@inject CurrentUserService CurrentUser
+@inject WellnessService Wellness
+
+<PageTitle>Notifications | Wellness Platform</PageTitle>
+
+<div class="client-dashboard staff-dashboard">
+    <section class="dashboard-hero">
+        <div class="dashboard-hero-content">
+            <div class="dashboard-eyebrow">ACCOUNT</div>
+            <h1>Notifications</h1>
+            <p>Review updates for your account and mark them as read.</p>
+        </div>
+        <div class="dashboard-hero-action">
+            <span class="staff-role-badge">@unreadCount unread</span>
+        </div>
+    </section>
+
+    <section class="dashboard-panel staff-records-panel">
+        <div class="panel-header">
+            <div>
+                <span class="panel-eyebrow">RECENT UPDATES</span>
+                <h2>Your notifications</h2>
+                <p>Showing your latest @notifications.Count notifications.</p>
+            </div>
+            @if (unreadCount > 0)
+            {
+                <button class="button button-secondary"
+                        type="button"
+                        @onclick="MarkAllReadAsync">
+                    Mark all as read
+                </button>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <p class="notification-status" role="status">@statusMessage</p>
+        }
+
+        @if (notifications.Count == 0)
+        {
+            <div class="empty-state">
+                <div class="empty-icon" aria-hidden="true">🔔</div>
+                <h3>You’re all caught up</h3>
+                <p>New account updates will appear here.</p>
+            </div>
+        }
+        else
+        {
+            <div class="staff-record-list">
+                @foreach (var notification in notifications)
+                {
+                    <article class="staff-record-card notification-card @(notification.Read ? "is-read" : "is-unread")">
+                        <div class="staff-record-heading">
+                            <div>
+                                <span class="panel-eyebrow">
+                                    @(notification.Read ? "READ" : "NEW")
+                                </span>
+                                <h3>@notification.Title</h3>
+                            </div>
+                            <time datetime="@notification.CreatedAt.ToString("O")">
+                                @notification.CreatedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                            </time>
+                        </div>
+                        <p>@notification.Message</p>
+                        @if (!notification.Read)
+                        {
+                            <button class="button button-secondary"
+                                    type="button"
+                                    @onclick="() => MarkReadAsync(notification)">
+                                Mark as read
+                            </button>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private List<Notification> notifications = [];
+    private string? statusMessage;
+
+    private int unreadCount =>
+        notifications.Count(notification => !notification.Read);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.User is not null)
+        {
+            notifications = await Wellness.GetNotificationsAsync(
+                CurrentUser.User.Id);
+        }
+    }
+
+    private async Task MarkReadAsync(Notification notification)
+    {
+        if (CurrentUser.User is null)
+        {
+            return;
+        }
+
+        var updated = await Wellness.MarkNotificationReadAsync(
+            CurrentUser.User.Id,
+            notification.Id);
+
+        if (!updated)
+        {
+            statusMessage = "This notification could not be updated. Refresh and try again.";
+            return;
+        }
+
+        notification.Read = true;
+        statusMessage = "Notification marked as read.";
+    }
+
+    private async Task MarkAllReadAsync()
+    {
+        if (CurrentUser.User is null)
+        {
+            return;
+        }
+
+        var updatedCount = await Wellness.MarkAllNotificationsReadAsync(
+            CurrentUser.User.Id);
+
+        foreach (var notification in notifications)
+        {
+            notification.Read = true;
+        }
+
+        statusMessage = updatedCount == 0
+            ? "There are no unread notifications."
+            : $"{updatedCount} notifications marked as read.";
+    }
+}

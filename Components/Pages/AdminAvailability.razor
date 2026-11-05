@@ -1,0 +1,244 @@
+
+@page "/admin/availability"
+@attribute [Authorize(Policy = "AdminOnly")]
+@using WellnessPlatform.Models
+@inject CurrentUserService CurrentUser
+@inject WellnessService Wellness
+
+<PageTitle>Appointment Availability | Wellness Platform</PageTitle>
+
+<div class="availability-page">
+    <div class="availability-container">
+
+        <header class="availability-header">
+            <span class="availability-eyebrow">SYSTEM MANAGEMENT</span>
+            <h1>Appointment availability</h1>
+            <p>
+                Configure your facility's operating hours, time zone,
+                booking intervals, and appointment capacity.
+            </p>
+        </header>
+
+        <section class="availability-card">
+            <div class="availability-card-heading">
+                <div class="availability-heading-icon">⚙</div>
+                <div>
+                    <span class="availability-section-label">BOOKING CONFIGURATION</span>
+                    <h2>Booking rules</h2>
+                    <p>Set the rules that control how clients book appointments.</p>
+                </div>
+            </div>
+
+            <div class="availability-settings-grid">
+                <div class="availability-form-group">
+                    <label for="timezone">Facility time zone</label>
+                    <select id="timezone"
+                            class="availability-input"
+                            @bind="settings.TimeZoneId">
+                        @foreach (var zone in timeZones)
+                        {
+                            <option value="@zone.Id">
+                                @zone.DisplayName (@zone.Id)
+                            </option>
+                        }
+                    </select>
+                    <small>All appointment times use this time zone.</small>
+                </div>
+
+                <div class="availability-form-group">
+                    <label for="slotInterval">Appointment start interval</label>
+                    <div class="availability-input-with-unit">
+                        <input id="slotInterval"
+                               type="number"
+                               class="availability-input"
+                               min="5"
+                               max="240"
+                               @bind="settings.SlotIntervalMinutes" />
+                        <span>minutes</span>
+                    </div>
+                    <small>Controls the spacing between available start times.</small>
+                </div>
+
+                <div class="availability-form-group">
+                    <label for="capacity">Maximum simultaneous appointments</label>
+                    <div class="availability-input-with-unit">
+                        <input id="capacity"
+                               type="number"
+                               class="availability-input"
+                               min="1"
+                               max="100"
+                               @bind="settings.MaxConcurrentAppointments" />
+                        <span>appointments</span>
+                    </div>
+                    <small>Limits how many appointments can overlap.</small>
+                </div>
+            </div>
+        </section>
+
+        <section class="availability-card">
+            <div class="availability-card-heading">
+                <div class="availability-heading-icon">◷</div>
+                <div>
+                    <span class="availability-section-label">WEEKLY SCHEDULE</span>
+                    <h2>Opening hours</h2>
+                    <p>Choose which days your facility accepts appointments.</p>
+                </div>
+            </div>
+
+            <div class="availability-information">
+                <span>ⓘ</span>
+                <p>
+                    Closed days will not offer booking slots. Each open day
+                    has one continuous booking window. New installations
+                    start with every day closed.
+                </p>
+            </div>
+
+            <div class="availability-week">
+                @foreach (var day in hours.OrderBy(item => item.DayOfWeek))
+                {
+                    <div class="availability-day">
+                        <div class="availability-day-main">
+                            <label class="availability-toggle">
+                                <input type="checkbox" @bind="day.IsOpen" />
+                                <span class="availability-toggle-slider"></span>
+                            </label>
+
+                            <strong>@day.DayOfWeek</strong>
+                        </div>
+
+                        @if (day.IsOpen)
+                        {
+                            <div class="availability-day-hours">
+                                <label>
+                                    <span>OPENS</span>
+                                    <input type="time"
+                                           class="availability-input availability-time"
+                                           @bind="day.OpensAt" />
+                                </label>
+
+                                <span class="availability-time-separator">to</span>
+
+                                <label>
+                                    <span>CLOSES</span>
+                                    <input type="time"
+                                           class="availability-input availability-time"
+                                           @bind="day.ClosesAt" />
+                                </label>
+                            </div>
+
+                            <span class="availability-open-badge">Open</span>
+                        }
+                        else
+                        {
+                            <span class="availability-closed-badge">Closed</span>
+                        }
+                    </div>
+                }
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="availability-alert" role="alert">
+                    <span>!</span>
+                    @errorMessage
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(successMessage))
+            {
+                <div class="availability-success" role="status">
+                    <span>✓</span>
+                    @successMessage
+                </div>
+            }
+
+            <div class="availability-save-area">
+                <p>Remember to save your changes before leaving this page.</p>
+
+                <button class="availability-save-button"
+                        type="button"
+                        @onclick="SaveAsync"
+                        disabled="@saving">
+                    @if (saving)
+                    {
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span>Save availability</span>
+                        <span>→</span>
+                    }
+                </button>
+            </div>
+        </section>
+
+        <div class="availability-footer-note">
+            <span>🔒</span>
+            <p>
+                <strong>Administrator settings</strong>
+                Only authorized administrators can configure facility
+                availability and booking rules.
+            </p>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    private AvailabilitySettings settings = new();
+    private List<BusinessHours> hours = [];
+
+    private readonly IReadOnlyList<TimeZoneInfo> timeZones =
+        TimeZoneInfo.GetSystemTimeZones();
+
+    private bool saving;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var savedAvailability = await Wellness.GetBusinessAvailabilityAsync();
+        settings = savedAvailability.Settings;
+        hours = savedAvailability.Hours;
+
+        foreach (var day in Enum.GetValues<DayOfWeek>())
+        {
+            if (hours.Any(item => item.DayOfWeek == day))
+            {
+                continue;
+            }
+
+            hours.Add(new BusinessHours
+            {
+                DayOfWeek = day,
+                IsOpen = false
+            });
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        errorMessage = null;
+        successMessage = null;
+        saving = true;
+
+        try
+        {
+            await Wellness.SaveBusinessAvailabilityAsync(
+                CurrentUser.User!.Id,
+                settings,
+                hours);
+
+            successMessage = "Appointment availability was saved.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            errorMessage = exception.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+}

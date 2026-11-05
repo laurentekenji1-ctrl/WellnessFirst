@@ -1,0 +1,80 @@
+@page "/action-plans"
+@attribute [Authorize(Policy = "ClientOnly")]
+@using WellnessPlatform.Models
+@inject CurrentUserService CurrentUser
+@inject WellnessService Wellness
+
+<PageTitle>My Action Plans | Wellness Platform</PageTitle>
+
+<div class="client-dashboard">
+    <section class="dashboard-hero">
+        <div class="dashboard-hero-content">
+            <div class="dashboard-eyebrow">WELLNESS</div>
+            <h1>My Action Plans</h1>
+            <p>Review plans created for you by your wellness staff.</p>
+        </div>
+        <div class="dashboard-hero-action">
+            <span class="staff-role-badge">@actionPlans.Count plans</span>
+        </div>
+    </section>
+
+    <section class="dashboard-panel staff-records-panel">
+        <div class="panel-header">
+            <div>
+                <span class="panel-eyebrow">YOUR WELLNESS PLAN</span>
+                <h2>Action plans</h2>
+                <p>Plans are read-only here. Contact your staff member if details need to change.</p>
+            </div>
+        </div>
+
+        @if (actionPlans.Count == 0)
+        {
+            <div class="empty-state">
+                <h3>No action plans yet</h3>
+                <p>Your staff member will share plans here when they are ready.</p>
+            </div>
+        }
+        else
+        {
+            <div class="staff-record-list">
+                @foreach (var plan in actionPlans)
+                {
+                    <article class="staff-record-card action-plan-card">
+                        <div class="staff-record-heading">
+                            <div>
+                                <span class="panel-eyebrow">
+                                    @(plan.Staff?.FullName ?? "Wellness staff")
+                                </span>
+                                <h3>@plan.Title</h3>
+                            </div>
+                            <span class="status-badge @(plan.Status == ActionPlanStatus.Completed ? "status-completed" : "status-pending")">
+                                @plan.Status
+                            </span>
+                        </div>
+                        <p>@plan.Description</p>
+                        <div class="action-plan-meta">
+                            <span>Created @plan.CreatedAt.ToLocalTime().ToString("MMM d, yyyy")</span>
+                            @if (plan.TargetDate.HasValue)
+                            {
+                                <span>Target @plan.TargetDate.Value.ToLocalTime().ToString("MMM d, yyyy")</span>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private List<ActionPlan> actionPlans = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.User is not null)
+        {
+            actionPlans = await Wellness.GetClientActionPlansAsync(
+                CurrentUser.User.Id);
+        }
+    }
+}

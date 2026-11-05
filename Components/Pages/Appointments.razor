@@ -1,0 +1,427 @@
+@page "/appointments"
+@attribute [Authorize(Policy = "ClientOnly")]
+@inject CurrentUserService CurrentUser
+@inject WellnessService Wellness
+@inject StripePaymentService StripePayments
+
+
+<PageTitle>My Appointments | Wellness Platform</PageTitle>
+
+<div class="my-appointments-page">
+    <div class="my-appointments-container">
+
+        <header class="appointments-header">
+            <div>
+                <span class="appointments-eyebrow">YOUR WELLNESS JOURNEY</span>
+                <h1>My appointments</h1>
+                <p>Review your upcoming sessions and keep track of your wellness journey.</p>
+            </div>
+            <a href="/booking" class="appointments-book-button">
+                <span>＋</span> Book a service
+            </a>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(paymentMessage))
+        {
+            <div class="appointments-message" role="status">
+                @paymentMessage
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(actionMessage))
+        {
+            <div class="appointments-message" role="status">
+                @actionMessage
+            </div>
+        }
+
+        @if (!CurrentUser.IsAuthenticated || !CurrentUser.IsClient)
+        {
+            <div class="appointments-empty-card">
+                <div class="appointments-empty-icon">◎</div>
+                <h2>Client sign-in required</h2>
+                <p>Please sign in to view and manage your appointments.</p>
+                <a href="/signin" class="appointments-primary-button">Sign In</a>
+            </div>
+        }
+        else
+        {
+            <div class="appointments-toolbar">
+                <div class="appointments-tabs">
+                    <button class="@GetTabClass(false)"
+                            @onclick="() => showPast = false">
+                        Upcoming
+                    </button>
+                    <button class="@GetTabClass(true)"
+                            @onclick="() => showPast = true">
+                        History
+                    </button>
+                </div>
+                <span class="appointments-total">
+                    @appointments.Count @(appointments.Count == 1 ? "appointment" : "appointments")
+                </span>
+            </div>
+
+            @if (appointments.Count == 0)
+            {
+                <div class="appointments-empty-card">
+                    <div class="appointments-empty-icon">◎</div>
+                    <h2>@(showPast ? "No previous appointments" : "No upcoming appointments")</h2>
+
+                    @if (!showPast)
+                    {
+                        <p>Your next wellness milestone starts with a booking.</p>
+                        <a href="/booking" class="appointments-primary-button">
+                            Book a service
+                        </a>
+                    }
+                    else
+                    {
+                        <p>Your completed and previous appointments will appear here.</p>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="appointments-list">
+                    @foreach (var appointment in appointments)
+                    {
+                        var latestPayment = appointment.Payments
+                            .OrderByDescending(payment => payment.Id)
+                            .FirstOrDefault();
+
+                        var appointmentIsPaid = latestPayment?.Status is PaymentStatus.Paid
+                            or PaymentStatus.PartiallyRefunded;
+
+                        <article class="my-appointment-card" @key="appointment.Id">
+
+                            <div class="appointment-date-block">
+                                <span class="appointment-date-month">
+                                    @appointment.StartAt.ToString("MMM")
+                                </span>
+                                <strong>@appointment.StartAt.Day</strong>
+                                <span class="appointment-date-day">
+                                    @appointment.StartAt.ToString("ddd")
+                                </span>
+                            </div>
+
+                            <div class="appointment-details">
+                                <div class="appointment-card-top">
+                                    <span class="appointment-status status @appointment.Status.ToString().ToLowerInvariant()">
+                                        @appointment.Status
+                                    </span>
+
+                                    @if (appointmentIsPaid)
+                                    {
+                                        <span class="appointment-payment-badge">
+                                            @(latestPayment?.Status == PaymentStatus.PartiallyRefunded
+                                                ? "Partially refunded"
+                                                : "Paid")
+                                        </span>
+                                    }
+                                </div>
+
+                                <h2>@appointment.ServiceItem?.Name</h2>
+
+                                <div class="appointment-time">
+                                    <span>◷</span>
+                                    @appointment.StartAt.ToString("MMMM d, yyyy")
+                                    <span class="appointment-time-divider">·</span>
+                                    @appointment.StartAt.ToString("h:mm tt")
+                                </div>
+
+                                @if (!string.IsNullOrWhiteSpace(appointment.Notes))
+                                {
+                                    <p class="appointment-notes">
+                                        @appointment.Notes
+                                    </p>
+                                }
+                            </div>
+
+                            <div class="appointment-card-actions">
+                                @if (!showPast &&
+                                    appointment.Status is AppointmentStatus.Pending or AppointmentStatus.Confirmed)
+                                {
+                                    <button class="appointments-secondary-button"
+                                            @onclick="() => BeginRescheduleAsync(appointment)">
+                                        Reschedule
+                                    </button>
+
+                                    @if (appointment.Status == AppointmentStatus.Pending &&
+                                        !appointmentIsPaid)
+                                    {
+                                        <button class="appointments-text-button"
+                                                @onclick="() => CancelAppointment(appointment.Id)">
+                                            Cancel appointment
+                                        </button>
+                                    }
+                                }
+
+                                @if (appointmentIsPaid)
+                                {
+                                    <a class="appointments-secondary-button" href="/payments">
+                                        View receipt
+                                    </a>
+                                }
+                                else if (!showPast &&
+                                    appointment.Status is AppointmentStatus.Pending or AppointmentStatus.Confirmed)
+                                {
+                                    @if (StripePayments.IsCheckoutConfigured)
+                                    {
+                                        <form method="post"
+                                              action="@($"/payments/checkout/{appointment.Id}")"
+                                              data-enhance="false">
+                                            <AntiforgeryToken />
+                                            <button class="appointments-primary-button" type="submit">
+                                                Pay online
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <span class="appointment-payment-note">
+                                            Online payment is not configured.
+                                        </span>
+                                    }
+                                }
+                            </div>
+
+                            @if (!showPast &&
+                                reschedulingAppointmentId == appointment.Id)
+                            {
+                                <div class="appointment-reschedule-panel">
+                                    <div class="reschedule-heading">
+                                        <div>
+                                            <span class="appointments-eyebrow">CHANGE YOUR SCHEDULE</span>
+                                            <h3>Choose a new appointment time</h3>
+                                            <p>Your service and any existing payment will remain unchanged.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="reschedule-fields">
+                                        <div class="form-group">
+                                            <label for="@($"reschedule-date-{appointment.Id}")">New date</label>
+                                            <input id="@($"reschedule-date-{appointment.Id}")"
+                                                   type="date"
+                                                   class="form-control"
+                                                   min="@MinimumDate"
+                                                   @bind="rescheduleDate"
+                                                   @bind:after="() => LoadRescheduleTimesAsync(appointment)" />
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="@($"reschedule-time-{appointment.Id}")">Available time</label>
+                                            <select id="@($"reschedule-time-{appointment.Id}")"
+                                                    class="form-control"
+                                                    @bind="selectedRescheduleTime"
+                                                    disabled="@(loadingRescheduleTimes || rescheduleTimes.Count == 0)">
+                                                <option value="">Select an available time</option>
+                                                @foreach (var time in rescheduleTimes)
+                                                {
+                                                    <option value="@time.ToString("HH:mm")">
+                                                        @time.ToString("h:mm tt")
+                                                    </option>
+                                                }
+                                            </select>
+
+                                            @if (loadingRescheduleTimes)
+                                            {
+                                                <small class="reschedule-hint">Checking available times...</small>
+                                            }
+                                            else if (rescheduleTimes.Count == 0)
+                                            {
+                                                <small class="reschedule-hint">No appointment times are available for this date.</small>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <p class="reschedule-timezone">
+                                        Times are shown in @availabilityTimeZone.
+                                    </p>
+
+                                    @if (!string.IsNullOrWhiteSpace(rescheduleErrorMessage))
+                                    {
+                                        <div class="appointments-error" role="alert">
+                                            @rescheduleErrorMessage
+                                        </div>
+                                    }
+
+                                    <div class="reschedule-actions">
+                                        <button class="appointments-secondary-button"
+                                                type="button"
+                                                @onclick="EndReschedule"
+                                                disabled="@savingReschedule">
+                                            Keep current time
+                                        </button>
+
+                                        <button class="appointments-primary-button"
+                                                type="button"
+                                                @onclick="() => SaveRescheduleAsync(appointment.Id)"
+                                                disabled="@(savingReschedule || loadingRescheduleTimes || string.IsNullOrWhiteSpace(selectedRescheduleTime))">
+                                            @(savingReschedule ? "Saving..." : "Save new time")
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+
+@code {
+    private List<Appointment> appointments = [];
+    private bool showPast;
+    private string? actionMessage;
+    private int? reschedulingAppointmentId;
+    private DateTime rescheduleDate = DateTime.Today.AddDays(1);
+    private List<TimeOnly> rescheduleTimes = [];
+    private string selectedRescheduleTime = "";
+    private string availabilityTimeZone = "";
+    private DateTime facilityToday = DateTime.Today;
+    private bool loadingRescheduleTimes;
+    private bool savingReschedule;
+    private string? rescheduleErrorMessage;
+
+    private string MinimumDate => facilityToday.ToString("yyyy-MM-dd");
+
+    [SupplyParameterFromQuery(Name = "payment")]
+    public string? PaymentResult { get; set; }
+
+    private string? paymentMessage => PaymentResult switch
+    {
+        "processing" => "Your checkout finished. Payment status will update after Stripe confirms it.",
+        "cancelled" => "Checkout was cancelled; your appointment remains unpaid.",
+        "unavailable" => "Online payment could not be started. Please try again later or contact support.",
+        "form-expired" => "The payment form expired. Refresh the page and try again.",
+        "invalid" => "This appointment is not available for payment.",
+        _ => null
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var availability = await Wellness.GetBusinessAvailabilityAsync();
+        availabilityTimeZone = availability.Settings.TimeZoneId;
+        var timeZone = TimeZoneInfo.FindSystemTimeZoneById(
+            availability.Settings.TimeZoneId);
+        facilityToday = TimeZoneInfo.ConvertTimeFromUtc(
+            DateTime.UtcNow,
+            timeZone).Date;
+        await LoadAppointments();
+    }
+
+    private async Task LoadAppointments()
+    {
+        if (!CurrentUser.IsAuthenticated || !CurrentUser.IsClient)
+            return;
+
+        appointments = await Wellness.GetClientAppointmentsAsync(
+            CurrentUser.User!.Id,
+            showPast);
+    }
+
+    private async Task CancelAppointment(int appointmentId)
+    {
+        actionMessage = null;
+        try
+        {
+            await Wellness.CancelAppointmentAsync(
+                appointmentId,
+                CurrentUser.User!.Id);
+
+            await LoadAppointments();
+        }
+        catch (InvalidOperationException exception)
+        {
+            actionMessage = exception.Message;
+        }
+    }
+
+    private async Task BeginRescheduleAsync(Appointment appointment)
+    {
+        reschedulingAppointmentId = appointment.Id;
+        rescheduleDate = appointment.StartAt.Date;
+        rescheduleErrorMessage = null;
+        await LoadRescheduleTimesAsync(appointment);
+    }
+
+    private async Task LoadRescheduleTimesAsync(Appointment appointment)
+    {
+        loadingRescheduleTimes = true;
+        selectedRescheduleTime = "";
+        rescheduleTimes = [];
+        try
+        {
+            rescheduleTimes = await Wellness.GetAvailableTimeSlotsAsync(
+                appointment.ServiceItemId,
+                DateOnly.FromDateTime(rescheduleDate),
+                appointment.Id,
+                CurrentUser.User!.Id,
+                appointment.StaffId);
+
+            var currentTime = TimeOnly.FromDateTime(appointment.StartAt);
+            if (rescheduleTimes.Contains(currentTime))
+            {
+                selectedRescheduleTime = currentTime.ToString("HH:mm");
+            }
+        }
+        finally
+        {
+            loadingRescheduleTimes = false;
+        }
+    }
+
+    private void EndReschedule()
+    {
+        reschedulingAppointmentId = null;
+        rescheduleErrorMessage = null;
+        selectedRescheduleTime = "";
+        rescheduleTimes = [];
+    }
+
+    private async Task SaveRescheduleAsync(int appointmentId)
+    {
+        rescheduleErrorMessage = null;
+        savingReschedule = true;
+
+        try
+        {
+            if (!TimeOnly.TryParseExact(
+                    selectedRescheduleTime,
+                    "HH:mm",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None,
+                    out var rescheduleTime))
+            {
+                rescheduleErrorMessage =
+                    "Please select an available appointment time.";
+                return;
+            }
+
+            var newStartAt = DateOnly.FromDateTime(rescheduleDate)
+                .ToDateTime(rescheduleTime);
+            await Wellness.RescheduleAppointmentAsync(
+                appointmentId,
+                CurrentUser.User!.Id,
+                newStartAt);
+
+            actionMessage = "Your appointment was rescheduled.";
+            EndReschedule();
+            await LoadAppointments();
+        }
+        catch (InvalidOperationException exception)
+        {
+            rescheduleErrorMessage = exception.Message;
+        }
+        finally
+        {
+            savingReschedule = false;
+        }
+    }
+
+    private string GetTabClass(bool history)
+        => showPast == history ? "active" : "";
+}

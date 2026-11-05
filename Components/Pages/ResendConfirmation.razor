@@ -1,0 +1,92 @@
+@page "/resend-confirmation"
+@attribute [AllowAnonymous]
+@using System.ComponentModel.DataAnnotations
+@using System.Net.Mail
+@inject AccountEmailService AccountEmail
+@inject ILogger<ResendConfirmation> Logger
+
+<PageTitle>Resend Verification Email | Wellness Platform</PageTitle>
+
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="auth-header">
+            <span class="eyebrow">ACCOUNT VERIFICATION</span>
+            <h1>Resend verification email</h1>
+            <p>Enter your account email to request a new verification link.</p>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="alert" role="alert">@errorMessage</div>
+        }
+        @if (!string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="success" role="status">@successMessage</div>
+        }
+
+        <EditForm Model="model" OnValidSubmit="SendConfirmationAsync">
+            <DataAnnotationsValidator />
+            <div class="form-group">
+                <label for="email">Email</label>
+                <InputText id="email"
+                           type="email"
+                           class="form-control"
+                           autocomplete="email"
+                           @bind-Value="model.Email" />
+                <ValidationMessage For="@(() => model.Email)" />
+            </div>
+            <button class="button button-primary" type="submit" disabled="@loading">
+                Send verification link
+            </button>
+        </EditForm>
+
+        <div class="auth-footer">
+            <a href="/signin">Back to sign in</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly EmailRequestModel model = new();
+    private bool loading;
+    private string? errorMessage;
+    private string? successMessage;
+
+    private async Task SendConfirmationAsync()
+    {
+        loading = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await AccountEmail.RequestConfirmationEmailAsync(model.Email);
+            successMessage =
+                "If an unverified account exists for that address, a verification link will be sent.";
+        }
+        catch (EmailDeliveryNotConfiguredException)
+        {
+            errorMessage =
+                "Email verification is temporarily unavailable because email delivery is not configured.";
+        }
+        catch (SmtpException exception)
+        {
+            Logger.LogError(
+                exception,
+                "SMTP delivery failed during email verification.");
+            successMessage =
+                "If an unverified account exists for that address, a verification link will be sent.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private sealed class EmailRequestModel
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = "";
+    }
+}

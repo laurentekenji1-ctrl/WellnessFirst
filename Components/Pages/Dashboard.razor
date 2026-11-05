@@ -1,0 +1,576 @@
+@page "/dashboard"
+@attribute [Authorize(Policy = "ClientOnly")]
+@using WellnessPlatform.Models
+@inject WellnessPlatform.Services.WellnessService Wellness
+@inject CurrentUserService CurrentUser
+@inject NavigationManager Navigation
+
+<PageTitle>My Wellness Dashboard</PageTitle>
+
+<div class="client-dashboard">
+
+    <!-- ========================================================= -->
+    <!-- HEADER -->
+    <!-- ========================================================= -->
+
+    <section class="dashboard-hero">
+
+        <div class="dashboard-hero-content">
+
+            <div class="dashboard-eyebrow">
+                MY WELLNESS
+            </div>
+
+            <h1>
+                Welcome,
+                @(CurrentUser.User?.FullName ?? "Client")
+            </h1>
+
+            <p>
+                Your wellness overview. Keep track of your goals,
+                records, appointments and progress in one place.
+            </p>
+
+        </div>
+
+        <div class="dashboard-hero-action">
+
+            <a href="/booking"
+               class="button dashboard-primary-button">
+                + Book a Service
+            </a>
+
+        </div>
+
+    </section>
+
+
+    <!-- ========================================================= -->
+    <!-- SUMMARY CARDS -->
+    <!-- ========================================================= -->
+
+    <section class="dashboard-summary">
+
+        <div class="dashboard-stat-card">
+
+            <div class="stat-icon">
+                🎯
+            </div>
+
+            <div class="stat-content">
+
+                <span>Goals</span>
+
+                <strong>@goals.Count</strong>
+
+                <small>
+                    @(goals.Count == 1 ? "Active wellness goal" : "Wellness goals")
+                </small>
+
+            </div>
+
+        </div>
+
+
+        <div class="dashboard-stat-card">
+
+            <div class="stat-icon">
+                📝
+            </div>
+
+            <div class="stat-content">
+
+                <span>Wellness Records</span>
+
+                <strong>@records.Count</strong>
+
+                <small>
+                    Personal wellness records
+                </small>
+
+            </div>
+
+        </div>
+
+
+        <div class="dashboard-stat-card">
+
+            <div class="stat-icon">
+                📅
+            </div>
+
+            <div class="stat-content">
+
+                <span>Appointments</span>
+
+                <strong>@appointments.Count</strong>
+
+                <small>
+                    Upcoming appointments
+                </small>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- ========================================================= -->
+    <!-- MAIN GRID -->
+    <!-- ========================================================= -->
+
+    <div class="dashboard-grid">
+
+        <!-- ===================================================== -->
+        <!-- GOALS -->
+        <!-- ===================================================== -->
+
+        <section class="dashboard-panel">
+
+            <div class="panel-header">
+
+                <div>
+
+                    <span class="panel-eyebrow">
+                        YOUR WELLNESS
+                    </span>
+
+                    <h2>Goals</h2>
+
+                    <p>
+                        Set goals and keep track of your progress.
+                    </p>
+
+                </div>
+
+                <a href="/goals"
+                   class="panel-link">
+                    Manage goals →
+                </a>
+
+            </div>
+
+
+            @if (goals.Count == 0)
+            {
+                <div class="empty-state">
+
+                    <div class="empty-icon">
+                        🎯
+                    </div>
+
+                    <h3>
+                        No goals yet
+                    </h3>
+
+                    <p>
+                        Start by creating a wellness goal
+                        you'd like to work toward.
+                    </p>
+
+                    <a href="/goals"
+                       class="button button-secondary">
+                        Create a Goal
+                    </a>
+
+                </div>
+            }
+            else
+            {
+                <div class="goal-list">
+
+                    @foreach (var goal in goals.Take(3))
+                    {
+                        <div class="goal-item">
+
+                            <div class="goal-item-header">
+
+                                <div>
+
+                                    <h3>
+                                        @goal.Title
+                                    </h3>
+
+                                    <span>
+                                        @goal.Status
+                                    </span>
+
+                                </div>
+
+                                <strong>
+                                    @goal.ProgressPercent%
+                                </strong>
+
+                            </div>
+
+
+                            <div class="progress-track">
+
+                                <div class="progress-bar"
+                                     style="width:@goal.ProgressPercent%">
+                                </div>
+
+                            </div>
+
+
+                            @if (!string.IsNullOrWhiteSpace(goal.Description))
+                            {
+                                <p>
+                                    @goal.Description
+                                </p>
+                            }
+
+                        </div>
+                    }
+
+                </div>
+            }
+
+        </section>
+
+
+        <!-- ===================================================== -->
+        <!-- QUICK ACTIONS -->
+        <!-- ===================================================== -->
+
+        <section class="dashboard-panel quick-actions-panel">
+
+            <div class="panel-header">
+
+                <div>
+
+                    <span class="panel-eyebrow">
+                        QUICK ACTIONS
+                    </span>
+
+                    <h2>Manage your wellness</h2>
+
+                </div>
+
+            </div>
+
+
+            <div class="quick-actions">
+
+                <a href="/booking"
+                   class="quick-action">
+
+                    <div class="quick-action-icon">
+                        📅
+                    </div>
+
+                    <div>
+
+                        <strong>
+                            Book a Service
+                        </strong>
+
+                        <span>
+                            Schedule your next wellness session
+                        </span>
+
+                    </div>
+
+                    <span class="quick-arrow">
+                        →
+                    </span>
+
+                </a>
+
+
+                <a href="/goals"
+                   class="quick-action">
+
+                    <div class="quick-action-icon">
+                        🎯
+                    </div>
+
+                    <div>
+
+                        <strong>
+                            Manage Goals
+                        </strong>
+
+                        <span>
+                            Review and update your wellness goals
+                        </span>
+
+                    </div>
+
+                    <span class="quick-arrow">
+                        →
+                    </span>
+
+                </a>
+
+
+                <a href="/profile"
+                   class="quick-action">
+
+                    <div class="quick-action-icon">
+                        👤
+                    </div>
+
+                    <div>
+
+                        <strong>
+                            My Profile
+                        </strong>
+
+                        <span>
+                            Update your personal information
+                        </span>
+
+                    </div>
+
+                    <span class="quick-arrow">
+                        →
+                    </span>
+
+                </a>
+
+                <a href="/progress"
+                   class="quick-action">
+                    <div class="quick-action-icon" aria-hidden="true">
+                        ↗
+                    </div>
+                    <div>
+                        <strong>View progress</strong>
+                        <span>See how your goals are moving forward</span>
+                    </div>
+                    <span class="quick-arrow" aria-hidden="true">→</span>
+                </a>
+
+            </div>
+
+        </section>
+
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- UPCOMING APPOINTMENTS -->
+    <!-- ========================================================= -->
+
+    <section class="dashboard-panel appointments-panel">
+
+        <div class="panel-header">
+
+            <div>
+
+                <span class="panel-eyebrow">
+                    YOUR SCHEDULE
+                </span>
+
+                <h2>Upcoming appointments</h2>
+
+                <p>
+                    Stay on top of your upcoming wellness sessions.
+                </p>
+
+            </div>
+
+            <a href="/appointments"
+               class="panel-link">
+                View all →
+            </a>
+
+        </div>
+
+
+        @if (appointments.Count == 0)
+        {
+            <div class="empty-state appointment-empty">
+
+                <div class="empty-icon">
+                    📅
+                </div>
+
+                <h3>
+                    No upcoming appointments
+                </h3>
+
+                <p>
+                    You don't have any upcoming appointments.
+                </p>
+
+                <a href="/booking"
+                   class="button button-primary">
+                    Book a Service
+                </a>
+
+            </div>
+        }
+        else
+        {
+            <div class="appointment-list">
+
+                @foreach (var appointment in appointments.Take(5))
+                {
+                    <div class="appointment-card">
+
+                        <div class="appointment-date">
+
+                            <span class="appointment-month">
+                                @appointment.StartAt.ToString("MMM")
+                            </span>
+
+                            <strong>
+                                @appointment.StartAt.ToString("dd")
+                            </strong>
+
+                        </div>
+
+
+                        <div class="appointment-info">
+
+                            <div class="appointment-type">
+                                WELLNESS APPOINTMENT
+                            </div>
+
+                            <h3>
+                                @(appointment.ServiceItem?.Name
+                                    ?? "Wellness Service")
+                            </h3>
+
+                            <p>
+
+                                @appointment.StartAt.ToString(
+                                    "MMMM dd, yyyy")
+
+                                <span class="separator">
+                                    •
+                                </span>
+
+                                @appointment.StartAt.ToString(
+                                    "h:mm tt")
+
+                            </p>
+
+                        </div>
+
+
+                        <div class="appointment-status">
+
+                            <span class="status-badge @GetStatusClass(appointment.Status)">
+                                @appointment.Status
+                            </span>
+
+                        </div>
+
+                    </div>
+                }
+
+            </div>
+        }
+
+    </section>
+
+
+    <!-- ========================================================= -->
+    <!-- WELLNESS JOURNEY -->
+    <!-- ========================================================= -->
+
+    <section class="wellness-journey">
+
+        <div class="journey-content">
+
+            <span class="panel-eyebrow">
+                YOUR WELLNESS JOURNEY
+            </span>
+
+            <h2>
+                Keep moving forward.
+            </h2>
+
+            <p>
+                Review your goals, update your wellness information,
+                track your activities and continue building healthier
+                habits over time.
+            </p>
+
+        </div>
+
+
+        <div class="journey-actions">
+
+            <a href="/goals"
+               class="button button-primary">
+                Review Goals
+            </a>
+
+            <a href="/services"
+               class="button button-secondary">
+                Explore Services
+            </a>
+
+        </div>
+
+    </section>
+
+</div>
+
+
+@code {
+
+    private List<Goal> goals = new();
+
+    private List<WellnessRecord> records = new();
+
+    private List<Appointment> appointments = new();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!CurrentUser.IsClient ||
+            CurrentUser.User is null)
+        {
+            Navigation.NavigateTo("/signin");
+
+            return;
+        }
+
+
+        var clientId =
+            CurrentUser.User.Id;
+
+
+        goals =
+            await Wellness.GetGoalsAsync(clientId);
+
+
+        records =
+            await Wellness.GetRecordsAsync(clientId);
+
+
+        appointments =
+            await Wellness.GetClientAppointmentsAsync(
+                clientId,
+                false);
+    }
+
+
+    private string GetStatusClass(
+        AppointmentStatus status)
+    {
+        return status switch
+        {
+            AppointmentStatus.Confirmed =>
+                "status-confirmed",
+
+            AppointmentStatus.Completed =>
+                "status-completed",
+
+            AppointmentStatus.Cancelled =>
+                "status-cancelled",
+
+            AppointmentStatus.Pending =>
+                "status-pending",
+
+            _ =>
+                "status-default"
+        };
+    }
+
+}

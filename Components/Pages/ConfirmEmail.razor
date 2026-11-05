@@ -1,0 +1,88 @@
+@page "/confirm-email"
+@attribute [AllowAnonymous]
+@inject AccountEmailService AccountEmail
+
+<PageTitle>Confirm Email | Wellness Platform</PageTitle>
+
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="auth-header">
+            <span class="eyebrow">ACCOUNT VERIFICATION</span>
+            <h1>Confirm your email</h1>
+            <p>Confirm the email address used to create your account.</p>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="alert" role="alert">@errorMessage</div>
+        }
+        @if (!string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="success" role="status">@successMessage</div>
+        }
+
+        @if (string.IsNullOrWhiteSpace(successMessage))
+        {
+            <button class="button button-primary"
+                    @onclick="ConfirmAsync"
+                    disabled="@loading">
+                Confirm email
+            </button>
+            <div class="auth-footer">
+                <a href="/resend-confirmation">Request a new link</a>
+            </div>
+        }
+        else
+        {
+            <div class="auth-footer">
+                <a href="/signin?email=verified">Continue to sign in</a>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "userId")]
+    public string? UserId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "token")]
+    public string? Token { get; set; }
+
+    private bool loading;
+    private string? errorMessage;
+    private string? successMessage;
+
+    private async Task ConfirmAsync()
+    {
+        loading = true;
+        errorMessage = null;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(UserId) ||
+                string.IsNullOrWhiteSpace(Token))
+            {
+                errorMessage =
+                    "This verification link is invalid or has expired.";
+                return;
+            }
+
+            var result = await AccountEmail.ConfirmEmailAsync(UserId, Token);
+            if (result.Succeeded)
+            {
+                successMessage =
+                    "Your email has been verified. You can now sign in.";
+            }
+            else
+            {
+                errorMessage = string.Join(
+                    " ",
+                    result.Errors.Select(error => error.Description));
+            }
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

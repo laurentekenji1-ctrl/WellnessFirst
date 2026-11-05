@@ -1,0 +1,3 @@
+Run: dotnet ef migrations add InitialCreate
+Then: dotnet ef database update
+The project is configured for Microsoft.EntityFrameworkCore.SqlServer.

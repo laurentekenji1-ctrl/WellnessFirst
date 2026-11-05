@@ -1,0 +1,105 @@
+@page "/signin"
+@using Microsoft.AspNetCore.WebUtilities
+@inject NavigationManager Navigation
+
+<PageTitle>Sign In | Wellness Platform</PageTitle>
+
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="auth-header">
+            <span class="eyebrow">WELLNESS PLATFORM</span>
+            <h1>Welcome back</h1>
+            <p>Sign in to continue your wellness journey.</p>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="alert">@errorMessage</div>
+        }
+        @if (!string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="success">@successMessage</div>
+        }
+
+        <form method="post" action="/auth/signin" data-enhance="false">
+            <AntiforgeryToken />
+            <input type="hidden" name="ReturnUrl" value="@returnUrl" />
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input id="email"
+                       name="Email"
+                       type="email"
+                       class="form-control"
+                       autocomplete="username"
+                       required />
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input id="password"
+                       name="Password"
+                       type="password"
+                       class="form-control"
+                       autocomplete="current-password"
+                       required />
+            </div>
+
+            <button type="submit" class="button button-primary">
+                Sign In
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <a href="/forgot-password">Forgot your password?</a>
+            <a href="/resend-confirmation">Resend verification email</a>
+        </div>
+
+        <div class="auth-footer">
+            <span>Don't have an account?</span>
+            <a href="/register">Create an account</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string? errorMessage;
+    private string? successMessage;
+    private string returnUrl = "";
+
+    protected override void OnInitialized()
+    {
+        var query = QueryHelpers.ParseQuery(
+            Navigation.ToAbsoluteUri(Navigation.Uri).Query);
+
+        if (query.TryGetValue("ReturnUrl", out var requestedReturnUrl) &&
+            requestedReturnUrl.Count > 0)
+        {
+            returnUrl = requestedReturnUrl.ToString();
+        }
+
+        if (query.TryGetValue("error", out var error))
+        {
+            errorMessage = error.ToString() switch
+            {
+                "denied" => "Your account does not have permission to access that page.",
+                "locked" => "Your account is temporarily locked after too many sign-in attempts.",
+                "expired" => "Your sign-in form expired. Refresh the page and try again.",
+                "unverified" => "Verify your email address before signing in.",
+                _ => "Invalid email or password."
+            };
+        }
+
+        if (query.TryGetValue("email", out var emailStatus) &&
+            emailStatus.ToString() == "verified")
+        {
+            successMessage = "Your email is verified. You can sign in.";
+        }
+
+        if (query.TryGetValue("reset", out var resetStatus) &&
+            resetStatus.ToString() == "success")
+        {
+            successMessage = "Your password was reset. You can sign in.";
+        }
+    }
+}

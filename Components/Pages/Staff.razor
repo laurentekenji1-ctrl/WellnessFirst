@@ -1,0 +1,271 @@
+@page "/staff"
+@attribute [Authorize(Policy = "StaffOnly")]
+@using WellnessPlatform.Models
+@inject CurrentUserService CurrentUser
+@inject WellnessService Wellness
+
+<PageTitle>Staff Dashboard | Wellness Platform</PageTitle>
+
+<div class="client-dashboard staff-dashboard">
+    <section class="dashboard-hero">
+        <div class="dashboard-hero-content">
+            <div class="dashboard-eyebrow">STAFF WORKSPACE</div>
+            <h1>Welcome, @(CurrentUser.User?.FullName ?? "Staff")</h1>
+            <p>
+                Review your schedule and stay up to date with the wellness services
+                your team provides.
+            </p>
+        </div>
+        <div class="dashboard-hero-action">
+            <span class="staff-role-badge">Staff account</span>
+        </div>
+    </section>
+
+    <section class="dashboard-summary" aria-label="Appointment overview">
+        <article class="dashboard-stat-card">
+            <div class="stat-icon" aria-hidden="true">📅</div>
+            <div class="stat-content">
+                <span>Upcoming appointments</span>
+                <strong>@UpcomingAppointments.Count</strong>
+                <small>Scheduled from today onward</small>
+            </div>
+        </article>
+
+        <article class="dashboard-stat-card">
+            <div class="stat-icon" aria-hidden="true">⏳</div>
+            <div class="stat-content">
+                <span>Awaiting confirmation</span>
+                <strong>@appointments.Count(appointment => appointment.Status == AppointmentStatus.Pending)</strong>
+                <small>Pending appointment requests</small>
+            </div>
+        </article>
+
+        <article class="dashboard-stat-card">
+            <div class="stat-icon" aria-hidden="true">👥</div>
+            <div class="stat-content">
+                <span>Clients in appointments</span>
+                <strong>@appointments.Select(appointment => appointment.ClientId).Distinct().Count()</strong>
+                <small>Clients with a recorded appointment</small>
+            </div>
+        </article>
+    </section>
+
+    <div class="dashboard-grid">
+        <section id="staff-appointments" class="dashboard-panel appointments-panel">
+            <div class="panel-header">
+                <div>
+                    <span class="panel-eyebrow">YOUR SCHEDULE</span>
+                    <h2>Upcoming appointments</h2>
+                    <p>Keep track of the next wellness sessions.</p>
+                </div>
+                <a href="#staff-appointment-history" class="panel-link">
+                    Recent activity ↓
+                </a>
+            </div>
+
+            @if (UpcomingAppointments.Count == 0)
+            {
+                <div class="empty-state appointment-empty">
+                    <div class="empty-icon" aria-hidden="true">📅</div>
+                    <h3>No upcoming appointments</h3>
+                    <p>New scheduled appointments will appear here.</p>
+                </div>
+            }
+            else
+            {
+                <div class="appointment-list">
+                    @foreach (var appointment in UpcomingAppointments.Take(5))
+                    {
+                        <article class="appointment-card">
+                            <div class="appointment-date">
+                                <span class="appointment-month">
+                                    @appointment.StartAt.ToString("MMM")
+                                </span>
+                                <strong>@appointment.StartAt.ToString("dd")</strong>
+                            </div>
+
+                            <div class="appointment-info">
+                                <div class="appointment-type">
+                                    @(appointment.Client?.FullName ?? "Client appointment")
+                                </div>
+                                <h3>@(appointment.ServiceItem?.Name ?? "Wellness service")</h3>
+                                <p>
+                                    @appointment.StartAt.ToString("MMMM dd, yyyy")
+                                    <span class="separator">•</span>
+                                    @appointment.StartAt.ToString("h:mm tt")
+                                </p>
+                            </div>
+
+                            <div class="appointment-status">
+                                <span class="status-badge @GetStatusClass(appointment.Status)">
+                                    @appointment.Status
+                                </span>
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="dashboard-panel quick-actions-panel">
+            <div class="panel-header">
+                <div>
+                    <span class="panel-eyebrow">QUICK ACTIONS</span>
+                    <h2>Staff workspace</h2>
+                </div>
+            </div>
+
+            <div class="quick-actions">
+                <a href="/services" class="quick-action">
+                    <div class="quick-action-icon" aria-hidden="true">✦</div>
+                    <div>
+                        <strong>Wellness Services</strong>
+                        <span>Review the available service catalog</span>
+                    </div>
+                    <span class="quick-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <a href="/profile" class="quick-action">
+                    <div class="quick-action-icon" aria-hidden="true">👤</div>
+                    <div>
+                        <strong>My Profile</strong>
+                        <span>View your staff account information</span>
+                    </div>
+                    <span class="quick-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <a href="/staff/records" class="quick-action">
+                    <div class="quick-action-icon" aria-hidden="true">📝</div>
+                    <div>
+                        <strong>Wellness Records</strong>
+                        <span>Review records for assigned clients</span>
+                    </div>
+                    <span class="quick-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <a href="/staff/clients" class="quick-action">
+                    <div class="quick-action-icon" aria-hidden="true">👥</div>
+                    <div>
+                        <strong>Assigned clients</strong>
+                        <span>Open your client roster and appointment links</span>
+                    </div>
+                    <span class="quick-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <a href="/staff/action-plans" class="quick-action">
+                    <div class="quick-action-icon" aria-hidden="true">✓</div>
+                    <div>
+                        <strong>Action plans</strong>
+                        <span>Review plans for your assigned clients</span>
+                    </div>
+                    <span class="quick-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <a href="/notifications" class="quick-action">
+                    <div class="quick-action-icon" aria-hidden="true">●</div>
+                    <div>
+                        <strong>Notifications</strong>
+                        <span>See updates related to your work</span>
+                    </div>
+                    <span class="quick-arrow" aria-hidden="true">→</span>
+                </a>
+
+                <a href="#staff-appointment-history" class="quick-action">
+                    <div class="quick-action-icon" aria-hidden="true">↻</div>
+                    <div>
+                        <strong>Recent appointments</strong>
+                        <span>Review the latest appointment activity</span>
+                    </div>
+                    <span class="quick-arrow" aria-hidden="true">→</span>
+                </a>
+            </div>
+        </section>
+    </div>
+
+    <section id="staff-appointment-history" class="dashboard-panel appointments-panel">
+        <div class="panel-header">
+            <div>
+                <span class="panel-eyebrow">RECENT ACTIVITY</span>
+                <h2>Recent appointments</h2>
+                <p>The latest appointments recorded in the platform.</p>
+            </div>
+        </div>
+
+        @if (appointments.Count == 0)
+        {
+            <div class="empty-state appointment-empty">
+                <div class="empty-icon" aria-hidden="true">🗂</div>
+                <h3>No appointments recorded</h3>
+                <p>Appointment activity will appear here when available.</p>
+            </div>
+        }
+        else
+        {
+            <div class="appointment-list">
+                @foreach (var appointment in appointments.Take(5))
+                {
+                    <article class="appointment-card">
+                        <div class="appointment-date">
+                            <span class="appointment-month">
+                                @appointment.StartAt.ToString("MMM")
+                            </span>
+                            <strong>@appointment.StartAt.ToString("dd")</strong>
+                        </div>
+
+                        <div class="appointment-info">
+                            <div class="appointment-type">
+                                @(appointment.Client?.FullName ?? "Client appointment")
+                            </div>
+                            <h3>@(appointment.ServiceItem?.Name ?? "Wellness service")</h3>
+                            <p>
+                                @appointment.StartAt.ToString("MMMM dd, yyyy")
+                                <span class="separator">•</span>
+                                @appointment.StartAt.ToString("h:mm tt")
+                            </p>
+                        </div>
+
+                        <div class="appointment-status">
+                            <span class="status-badge @GetStatusClass(appointment.Status)">
+                                @appointment.Status
+                            </span>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private List<Appointment> appointments = [];
+
+    private List<Appointment> UpcomingAppointments =>
+        appointments
+            .Where(appointment =>
+                appointment.StartAt >= DateTime.Now &&
+                appointment.Status != AppointmentStatus.Cancelled &&
+                appointment.Status != AppointmentStatus.Completed)
+            .OrderBy(appointment => appointment.StartAt)
+            .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.IsStaff)
+        {
+            appointments = await Wellness.GetStaffAppointmentsAsync(
+                CurrentUser.User!.Id);
+        }
+    }
+
+    private static string GetStatusClass(AppointmentStatus status)
+    {
+        return status switch
+        {
+            AppointmentStatus.Confirmed => "status-confirmed",
+            AppointmentStatus.Completed => "status-completed",
+            AppointmentStatus.Cancelled => "status-cancelled",
+            AppointmentStatus.Pending => "status-pending",
+            _ => "status-default"
+        };
+    }
+}

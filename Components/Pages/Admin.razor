@@ -1,0 +1,347 @@
+
+@page "/admin"
+@namespace WellnessPlatform.Components.Pages.AdminDashboard
+@attribute [Authorize(Policy = "AdminOnly")]
+@inject CurrentUserService CurrentUser
+@inject WellnessService Wellness
+
+<PageTitle>Administrator Dashboard</PageTitle>
+
+<div class="admin-dashboard">
+    @if (!CurrentUser.IsAdmin)
+    {
+        <div class="admin-access-denied">
+            <h1>Administrator Dashboard</h1>
+            <p>Administrator access is required.</p>
+        </div>
+    }
+    else
+    {
+        <div class="admin-container">
+
+            <section class="admin-dashboard-hero">
+                <div class="admin-hero-content">
+                    <span class="admin-eyebrow">ADMINISTRATION · SYSTEM OVERVIEW</span>
+                    <h1>Administrator workspace</h1>
+                    <p>
+                        Manage the people, services, schedules, and payments
+                        that keep your wellness platform running.
+                    </p>
+                </div>
+
+                <a class="admin-primary-button" href="/admin/availability">
+                    Configure availability <span>→</span>
+                </a>
+            </section>
+
+            <section class="admin-summary" aria-label="Platform overview">
+                <article class="admin-stat-card">
+                    <div class="admin-stat-top">
+                        <span>ACCOUNTS</span>
+                        <span class="admin-stat-icon">01</span>
+                    </div>
+                    <strong>@users.Count</strong>
+                    <small>Registered platform users</small>
+                </article>
+
+                <article class="admin-stat-card">
+                    <div class="admin-stat-top">
+                        <span>SERVICES</span>
+                        <span class="admin-stat-icon">02</span>
+                    </div>
+                    <strong>@services.Count</strong>
+                    <small>Available in the catalog</small>
+                </article>
+
+                <article class="admin-stat-card">
+                    <div class="admin-stat-top">
+                        <span>APPOINTMENTS</span>
+                        <span class="admin-stat-icon">03</span>
+                    </div>
+                    <strong>@appointments.Count</strong>
+                    <small>Recorded appointments</small>
+                </article>
+
+                <article class="admin-stat-card">
+                    <div class="admin-stat-top">
+                        <span>STAFF</span>
+                        <span class="admin-stat-icon">04</span>
+                    </div>
+                    <strong>@staffMembers.Count</strong>
+                    <small>Active staff members</small>
+                </article>
+            </section>
+
+            <section class="admin-section">
+                <div class="admin-section-heading">
+                    <div>
+                        <span class="admin-eyebrow">OPERATIONS</span>
+                        <h2>Administration tools</h2>
+                    </div>
+                    <p>Common tasks for your platform</p>
+                </div>
+
+                <div class="admin-action-grid">
+                    <a class="admin-action-card" href="/admin/availability">
+                        <span class="admin-action-icon">◷</span>
+                        <strong>Appointment availability</strong>
+                        <span>Set weekly hours, time zone, and booking capacity.</span>
+                        <span class="admin-action-link">Manage schedule →</span>
+                    </a>
+
+                    <a class="admin-action-card" href="/admin/payments">
+                        <span class="admin-action-icon">₱</span>
+                        <strong>Payments &amp; refunds</strong>
+                        <span>Review collections and manage eligible refunds.</span>
+                        <span class="admin-action-link">Manage payments →</span>
+                    </a>
+
+                    <a class="admin-action-card" href="#admin-appointments">
+                        <span class="admin-action-icon">↗</span>
+                        <strong>Staff assignments</strong>
+                        <span>Assign open appointments to active staff.</span>
+                        <span class="admin-action-link">Review appointments →</span>
+                    </a>
+                </div>
+            </section>
+
+            <div class="admin-data-grid">
+
+                <section class="admin-panel">
+                    <div class="admin-panel-heading">
+                        <div>
+                            <span class="admin-eyebrow">PEOPLE</span>
+                            <h2>Recent accounts</h2>
+                        </div>
+                        <span class="admin-panel-count">@users.Count</span>
+                    </div>
+
+                    @if (users.Count == 0)
+                    {
+                        <p class="admin-empty">Accounts will appear here when registered.</p>
+                    }
+                    else
+                    {
+                        <div class="admin-list">
+                            @foreach (var user in users.Take(6))
+                            {
+                                <div class="admin-list-row">
+                                    <span class="admin-avatar">
+                                        @GetInitials(user.FullName)
+                                    </span>
+                                    <span class="admin-list-main">
+                                        <strong>@user.FullName</strong>
+                                        <small>@user.Email</small>
+                                    </span>
+                                    <span class="admin-role-badge role-@user.Role.ToString().ToLowerInvariant()">
+                                        @user.Role
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </section>
+
+                <section class="admin-panel">
+                    <div class="admin-panel-heading">
+                        <div>
+                            <span class="admin-eyebrow">CATALOG</span>
+                            <h2>Wellness services</h2>
+                        </div>
+                        <span class="admin-panel-count">@services.Count</span>
+                    </div>
+
+                    @if (services.Count == 0)
+                    {
+                        <p class="admin-empty">Active services will appear here.</p>
+                    }
+                    else
+                    {
+                        <div class="admin-list">
+                            @foreach (var service in services.Take(6))
+                            {
+                                <div class="admin-list-row">
+                                    <span class="admin-service-icon">✦</span>
+                                    <span class="admin-list-main">
+                                        <strong>@service.Name</strong>
+                                        <small>@service.DurationMinutes min session</small>
+                                    </span>
+                                    <strong class="admin-service-price">
+                                        ₱@service.Price.ToString("N2")
+                                    </strong>
+                                </div>
+                            }
+                        </div>
+                    }
+                </section>
+
+            </div>
+
+            <section id="admin-appointments" class="admin-panel admin-appointments-panel">
+                <div class="admin-panel-heading">
+                    <div>
+                        <span class="admin-eyebrow">SCHEDULE &amp; OPERATIONS</span>
+                        <h2>Appointments &amp; staff assignment</h2>
+                        <p>Review bookings and assign them to active staff members.</p>
+                    </div>
+                    <span class="admin-panel-count">@appointments.Count</span>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(assignmentMessage))
+                {
+                    <p class="admin-status-message" role="status">
+                        @assignmentMessage
+                    </p>
+                }
+
+                @if (appointments.Count == 0)
+                {
+                    <p class="admin-empty">
+                        Appointments will appear here when clients book a service.
+                    </p>
+                }
+                else
+                {
+                    <div class="admin-appointment-list">
+                        @foreach (var a in appointments.Take(20))
+                        {
+                            <article class="admin-appointment-row">
+
+                                <div class="admin-appointment-date">
+                                    <strong>@a.StartAt.ToLocalTime().ToString("dd")</strong>
+                                    <small>@a.StartAt.ToLocalTime().ToString("MMM")</small>
+                                </div>
+
+                                <div class="admin-appointment-info">
+                                    <strong>@(a.Client?.FullName ?? "Client")</strong>
+                                    <span>
+                                        @(a.ServiceItem?.Name ?? "Wellness service")
+                                        · @a.StartAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                                    </span>
+                                </div>
+
+                                <span class="status-badge @GetStatusClass(a.Status)">
+                                    @a.Status
+                                </span>
+
+                                <div class="admin-assignment-controls">
+                                    <select class="admin-staff-select"
+                                            aria-label="@($"Staff for appointment {a.Id}")"
+                                            value="@GetSelectedStaffId(a.Id)"
+                                            @onchange="args => SetSelectedStaff(a.Id, args)">
+                                        <option value="0">Choose staff</option>
+                                        @foreach (var staffMember in staffMembers)
+                                        {
+                                            <option value="@staffMember.Id">
+                                                @staffMember.FullName
+                                            </option>
+                                        }
+                                    </select>
+
+                                    <button class="admin-assign-button"
+                                            disabled="@(!selectedStaffByAppointment.TryGetValue(a.Id, out var selectedStaffId) || selectedStaffId == 0)"
+                                            @onclick="() => AssignStaffAsync(a.Id)">
+                                        Assign
+                                    </button>
+                                </div>
+
+                            </article>
+                        }
+                    </div>
+                }
+            </section>
+
+        </div>
+    }
+</div>
+
+@code {
+    private List<AppUser> users = [];
+    private List<AppUser> staffMembers = [];
+    private List<ServiceItem> services = [];
+    private List<Appointment> appointments = [];
+    private readonly Dictionary<int, int> selectedStaffByAppointment = [];
+    private string? assignmentMessage;
+
+    private static string GetInitials(string? name)
+    {
+        return string.Join(
+            "",
+            (name ?? "")
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Take(2)
+                .Select(part => char.ToUpperInvariant(part[0])));
+    }
+
+    private static string GetStatusClass(AppointmentStatus status)
+    {
+        return status switch
+        {
+            AppointmentStatus.Confirmed => "status-confirmed",
+            AppointmentStatus.Completed => "status-completed",
+            AppointmentStatus.Cancelled => "status-cancelled",
+            AppointmentStatus.Pending => "status-pending",
+            _ => "status-default"
+        };
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.IsAdmin)
+        {
+            users = await Wellness.GetUsersAsync();
+
+            staffMembers = users
+                .Where(user => user.Role == UserRole.Staff && user.Active)
+                .ToList();
+
+            services = await Wellness.GetServicesAsync();
+            appointments = await Wellness.GetAllAppointmentsAsync();
+
+            foreach (var appointment in appointments)
+            {
+                selectedStaffByAppointment[appointment.Id] =
+                    appointment.StaffId ?? 0;
+            }
+        }
+    }
+
+    private int GetSelectedStaffId(int appointmentId)
+    {
+        return selectedStaffByAppointment.TryGetValue(
+            appointmentId,
+            out var staffId)
+            ? staffId
+            : 0;
+    }
+
+    private void SetSelectedStaff(int appointmentId, ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var staffId))
+        {
+            selectedStaffByAppointment[appointmentId] = staffId;
+        }
+    }
+
+    private async Task AssignStaffAsync(int appointmentId)
+    {
+        if (!selectedStaffByAppointment.TryGetValue(
+                appointmentId,
+                out var staffId) ||
+            staffId <= 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await Wellness.AssignAppointmentAsync(appointmentId, staffId);
+            appointments = await Wellness.GetAllAppointmentsAsync();
+            assignmentMessage = "Staff assignment saved.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            assignmentMessage = ex.Message;
+        }
+    }
+}

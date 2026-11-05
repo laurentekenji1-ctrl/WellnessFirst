@@ -1,0 +1,111 @@
+@page "/staff/clients"
+@attribute [Authorize(Policy = "StaffClientsView")]
+@using WellnessPlatform.Models
+@inject CurrentUserService CurrentUser
+@inject WellnessService Wellness
+
+<PageTitle>Assigned Clients | Wellness Platform</PageTitle>
+
+<div class="client-dashboard staff-dashboard">
+    <section class="dashboard-hero">
+        <div class="dashboard-hero-content">
+            <div class="dashboard-eyebrow">MY WORK</div>
+            <h1>Assigned Clients</h1>
+            <p>
+                Clients are listed here when they have an appointment assigned to you.
+            </p>
+        </div>
+        <div class="dashboard-hero-action">
+            <span class="staff-role-badge">@filteredClients.Count assigned clients</span>
+        </div>
+    </section>
+
+    <section class="dashboard-panel staff-records-panel">
+        <div class="panel-header">
+            <div>
+                <span class="panel-eyebrow">CLIENT ROSTER</span>
+                <h2>Your clients</h2>
+                <p>Client information is limited to your assigned appointments.</p>
+            </div>
+            <label class="staff-record-filter">
+                <span>Search clients</span>
+                <input class="form-control"
+                       type="search"
+                       placeholder="Search by name"
+                       @bind="searchText"
+                       @bind:event="oninput" />
+            </label>
+        </div>
+
+        @if (clients.Count == 0)
+        {
+            <div class="empty-state">
+                <div class="empty-icon" aria-hidden="true">👥</div>
+                <h3>No assigned clients yet</h3>
+                <p>
+                    Clients will appear here after an appointment is assigned to you.
+                </p>
+            </div>
+        }
+        else if (filteredClients.Count == 0)
+        {
+            <div class="empty-state">
+                <div class="empty-icon" aria-hidden="true">⌕</div>
+                <h3>No matching clients</h3>
+                <p>Try a different name.</p>
+            </div>
+        }
+        else
+        {
+            <div class="staff-record-list">
+                @foreach (var client in filteredClients)
+                {
+                    <article class="staff-record-card staff-client-card">
+                        <div class="staff-record-heading">
+                            <div>
+                                <span class="panel-eyebrow">ASSIGNED CLIENT</span>
+                                <h3>@client.FullName</h3>
+                                <p>
+                                    @client.AssignedAppointmentCount
+                                    @(client.AssignedAppointmentCount == 1
+                                        ? "assigned appointment"
+                                        : "assigned appointments")
+                                </p>
+                            </div>
+                            <a class="button button-secondary"
+                               href="@GetRecordsUrl(client.Id)">
+                                View wellness records
+                            </a>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private List<StaffAssignedClient> clients = [];
+    private string searchText = "";
+
+    private List<StaffAssignedClient> filteredClients =>
+        string.IsNullOrWhiteSpace(searchText)
+            ? clients
+            : clients
+                .Where(client => client.FullName.Contains(
+                    searchText.Trim(),
+                    StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.IsStaff && CurrentUser.User is not null)
+        {
+            clients = await Wellness.GetStaffClientsAsync(
+                CurrentUser.User.Id);
+        }
+    }
+
+    private static string GetRecordsUrl(int clientId) =>
+        $"/staff/records?clientId={clientId}";
+}

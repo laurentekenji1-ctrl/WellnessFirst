@@ -1,0 +1,128 @@
+@page "/services/{ServiceId:int}"
+
+@using WellnessPlatform.Models
+
+@inject WellnessPlatform.Services.WellnessService Wellness
+
+<PageTitle>Service Details</PageTitle>
+
+<div class="service-details-page">
+
+    <div class="service-details-container">
+
+        <a class="back-link" href="/services">
+            ← Back to Services
+        </a>
+
+        @if (loading)
+        {
+            <div class="card">
+                <p>Loading service...</p>
+            </div>
+        }
+        else if (service is null)
+        {
+            <div class="card">
+
+                <h2>Service not found</h2>
+
+                <p class="muted">
+                    The wellness service you're looking for is unavailable.
+                </p>
+
+                <a class="button button-secondary"
+                   href="/services">
+                    View Services
+                </a>
+
+            </div>
+        }
+        else
+        {
+            <div class="service-details-card">
+
+                <div class="service-details-content">
+
+                    <div class="service-label">
+                        WELLNESS SERVICE
+                    </div>
+
+                    <h1>
+                        @service.Name
+                    </h1>
+
+                    @if (!string.IsNullOrWhiteSpace(service.Description))
+                    {
+                        <p class="service-description">
+                            @service.Description
+                        </p>
+                    }
+
+                    <div class="service-info-grid">
+
+                        <div class="service-info">
+
+                            <span>Duration</span>
+
+                            <strong>
+                                @service.DurationMinutes minutes
+                            </strong>
+
+                        </div>
+
+                        <div class="service-info">
+
+                            <span>Price</span>
+
+                            <strong>
+                                ₱@service.Price.ToString("N2")
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                    <div class="service-actions">
+
+                        <a class="button button-primary"
+                           href="@($"/booking?serviceId={service.Id}")">
+                            Book this service
+                        </a>
+
+                        <a class="button button-secondary"
+                           href="/services">
+                            View other services
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </div>
+        }
+
+    </div>
+
+</div>
+
+@code {
+
+    [Parameter]
+    public int ServiceId { get; set; }
+
+    private ServiceItem? service;
+
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            service = await Wellness.GetServiceAsync(ServiceId);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

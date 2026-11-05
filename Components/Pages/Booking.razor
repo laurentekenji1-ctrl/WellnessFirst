@@ -1,0 +1,550 @@
+@page "/booking"
+
+@using WellnessPlatform.Models
+
+@inject WellnessPlatform.Services.WellnessService Wellness
+@inject NavigationManager Navigation
+@inject CurrentUserService CurrentUser
+
+<PageTitle>Book Appointment | Wellness Platform</PageTitle>
+
+<div class="booking-page">
+
+    <div class="booking-container">
+
+        <a class="back-link" href="/services">
+            ← Back to Services
+        </a>
+
+        <div class="booking-header">
+            <span class="service-label">WELLNESS BOOKING</span>
+
+            <h1>Book an Appointment</h1>
+
+            <p>
+                Choose a wellness service, select your preferred date and time,
+                and submit your appointment request.
+            </p>
+        </div>
+
+        @if (loading)
+        {
+            <div class="booking-card">
+                <div class="booking-loading">
+                    <p>Loading booking information...</p>
+                </div>
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="booking-alert">
+                <strong>Unable to continue</strong>
+                <p>@errorMessage</p>
+
+                <a class="button button-secondary"
+                   href="/services">
+                    View Services
+                </a>
+            </div>
+        }
+        else
+        {
+            <div class="booking-layout">
+
+                <!-- BOOKING FORM -->
+                <div class="booking-card">
+
+                    <div class="card-header">
+                        <span class="card-number">01</span>
+
+                        <div>
+                            <h2>Appointment Details</h2>
+                            <p>
+                                Tell us when you'd like your appointment.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+
+                        <label for="service">
+                            Wellness Service
+                        </label>
+
+                        <select id="service"
+                                class="form-control"
+                                @bind="selectedServiceId"
+                                @bind:after="LoadAvailableTimesAsync">
+
+                            <option value="0">
+                                Select a service
+                            </option>
+
+                            @foreach (var item in services)
+                            {
+                                <option value="@item.Id">
+                                    @item.Name
+                                </option>
+                            }
+
+                        </select>
+
+                    </div>
+
+                    @if (selectedService is not null)
+                    {
+                        <div class="selected-service">
+
+                            <div>
+                                <span class="selected-label">
+                                    Selected Service
+                                </span>
+
+                                <h3>
+                                    @selectedService.Name
+                                </h3>
+
+                                @if (!string.IsNullOrWhiteSpace(
+                                    selectedService.Description))
+                                {
+                                    <p>
+                                        @selectedService.Description
+                                    </p>
+                                }
+                            </div>
+
+                            <div class="selected-service-meta">
+
+                                <div>
+                                    <span>Duration</span>
+                                    <strong>
+                                        @selectedService.DurationMinutes min
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>Price</span>
+                                    <strong>
+                                        ₱@selectedService.Price.ToString("N2")
+                                    </strong>
+                                </div>
+
+                            </div>
+
+                        </div>
+                    }
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+
+                            <label for="date">
+                                Appointment Date
+                            </label>
+
+                            <input id="date"
+                                   type="date"
+                                   class="form-control"
+                                   @bind="appointmentDate"
+                                   @bind:after="LoadAvailableTimesAsync"
+                                   min="@MinimumDate" />
+
+                        </div>
+
+                        <div class="form-group">
+                            <label for="time">Available Appointment Time</label>
+                            <select id="time"
+                                    class="form-control"
+                                    @bind="selectedAppointmentTime"
+                                    disabled="@(loadingAvailableTimes || availableTimes.Count == 0)">
+                                <option value="">Select an available time</option>
+                                @foreach (var time in availableTimes)
+                                {
+                                    <option value="@time.ToString("HH:mm")">
+                                        @time.ToString("h:mm tt")
+                                    </option>
+                                }
+                            </select>
+                            @if (!string.IsNullOrWhiteSpace(availabilityTimeZone))
+                            {
+                                <small class="muted">
+                                    Times are shown in @availabilityTimeZone.
+                                </small>
+                            }
+                            @if (loadingAvailableTimes)
+                            {
+                                <small class="muted">Checking available times...</small>
+                            }
+                            else if (selectedService is not null &&
+                                availableTimes.Count == 0)
+                            {
+                                <small class="muted">
+                                    No appointment times are available for this date. Try another date or contact the facility.
+                                </small>
+                            }
+                        </div>
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label for="notes">
+                            Notes
+                            <span class="optional">
+                                Optional
+                            </span>
+                        </label>
+
+                        <textarea id="notes"
+                                  class="form-control textarea"
+                                  @bind="notes"
+                                  rows="4"
+                                  placeholder="Tell us anything you'd like us to know before your appointment...">
+                        </textarea>
+
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(validationMessage))
+                    {
+                        <div class="booking-validation">
+                            @validationMessage
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(successMessage))
+                    {
+                        <div class="booking-success">
+                            @successMessage
+                        </div>
+                    }
+
+                    <div class="booking-actions">
+
+                        <a class="button button-secondary"
+                           href="/services">
+                            Cancel
+                        </a>
+
+                        <button type="button"
+                                class="button button-primary"
+                                @onclick="BookAppointment"
+                                disabled="@(saving || loadingAvailableTimes)">
+
+                            @if (saving)
+                            {
+                                <span>Booking...</span>
+                            }
+                            else
+                            {
+                                <span>Book Appointment</span>
+                            }
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <!-- SUMMARY -->
+                <aside class="booking-summary">
+
+                    <div class="summary-header">
+                        <span>BOOKING SUMMARY</span>
+                    </div>
+
+                    @if (selectedService is not null)
+                    {
+                        <h2>
+                            @selectedService.Name
+                        </h2>
+
+                        <div class="summary-item">
+
+                            <span>Duration</span>
+
+                            <strong>
+                                @selectedService.DurationMinutes minutes
+                            </strong>
+
+                        </div>
+
+                        <div class="summary-item">
+
+                            <span>Price</span>
+
+                            <strong>
+                                ₱@selectedService.Price.ToString("N2")
+                            </strong>
+
+                        </div>
+
+                        <div class="summary-divider"></div>
+
+                        <div class="summary-item">
+
+                            <span>Date</span>
+
+                            <strong>
+                                @FormatDate()
+                            </strong>
+
+                        </div>
+
+                        <div class="summary-item">
+
+                            <span>Time</span>
+
+                            <strong>
+                                @FormatTime()
+                            </strong>
+
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="summary-empty">
+
+                            <div class="summary-icon">
+                                +
+                            </div>
+
+                            <h3>Select a service</h3>
+
+                            <p>
+                                Your booking summary will appear here
+                                once you select a wellness service.
+                            </p>
+
+                        </div>
+                    }
+
+                </aside>
+
+            </div>
+        }
+
+    </div>
+
+</div>
+
+@code {
+
+    [SupplyParameterFromQuery]
+    public int? ServiceId { get; set; }
+
+    private List<ServiceItem> services = new();
+
+    private ServiceItem? selectedService;
+
+    private int selectedServiceId;
+
+    private DateTime appointmentDate =
+        DateTime.Today.AddDays(1);
+
+    private string notes = "";
+    private List<TimeOnly> availableTimes = [];
+    private string selectedAppointmentTime = "";
+    private string? availabilityTimeZone;
+    private DateTime facilityToday = DateTime.Today;
+    private bool loadingAvailableTimes;
+
+    private bool loading = true;
+    private bool saving = false;
+
+    private string? errorMessage;
+    private string? validationMessage;
+    private string? successMessage;
+
+    private string MinimumDate =>
+        facilityToday.ToString("yyyy-MM-dd");
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            services = await Wellness.GetServicesAsync();
+            var availability = await Wellness.GetBusinessAvailabilityAsync();
+            availabilityTimeZone = availability.Settings.TimeZoneId;
+            var timeZone = TimeZoneInfo.FindSystemTimeZoneById(
+                availability.Settings.TimeZoneId);
+            facilityToday = TimeZoneInfo.ConvertTimeFromUtc(
+                DateTime.UtcNow,
+                timeZone).Date;
+            appointmentDate = facilityToday.AddDays(1);
+
+            if (ServiceId.HasValue)
+            {
+                selectedServiceId = ServiceId.Value;
+            }
+
+            UpdateSelectedService();
+            await LoadAvailableTimesAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+
+            errorMessage =
+                "We couldn't load the available wellness services. Please try again.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void UpdateSelectedService()
+    {
+        selectedService =
+            services.FirstOrDefault(
+                x => x.Id == selectedServiceId);
+    }
+
+    private async Task LoadAvailableTimesAsync()
+    {
+        UpdateSelectedService();
+        availableTimes = [];
+        selectedAppointmentTime = "";
+
+        if (selectedService is null)
+        {
+            return;
+        }
+
+        loadingAvailableTimes = true;
+        try
+        {
+            availableTimes = await Wellness.GetAvailableTimeSlotsAsync(
+                selectedService.Id,
+                DateOnly.FromDateTime(appointmentDate),
+                clientId: CurrentUser.IsClient
+                    ? CurrentUser.User?.Id
+                    : null);
+        }
+        finally
+        {
+            loadingAvailableTimes = false;
+        }
+    }
+
+    private async Task BookAppointment()
+    {
+        validationMessage = null;
+        successMessage = null;
+
+        UpdateSelectedService();
+
+        if (selectedService is null)
+        {
+            validationMessage =
+                "Please select a wellness service.";
+
+            return;
+        }
+
+        if (!CurrentUser.IsAuthenticated)
+        {
+            Navigation.NavigateTo(
+                $"/signin?returnUrl=/booking?serviceId={selectedService.Id}");
+
+            return;
+        }
+
+        if (!CurrentUser.IsClient)
+        {
+            validationMessage =
+                "Only client accounts can book wellness appointments.";
+            return;
+        }
+
+        if (appointmentDate.Date < facilityToday)
+        {
+            validationMessage =
+                "Please select a future appointment date.";
+
+            return;
+        }
+
+        if (!TimeOnly.TryParseExact(
+                selectedAppointmentTime,
+                "HH:mm",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out var appointmentTime))
+        {
+            validationMessage =
+                "Please select an available appointment time.";
+
+            return;
+        }
+
+        var startAt = DateOnly.FromDateTime(appointmentDate)
+            .ToDateTime(appointmentTime);
+
+        var clientId = CurrentUser.User?.Id ?? 0;
+
+        if (clientId <= 0)
+        {
+            validationMessage =
+                "We couldn't identify your account. Please sign in again.";
+
+            return;
+        }
+
+        try
+        {
+            saving = true;
+
+            var appointment = new Appointment
+            {
+                ClientId = clientId,
+                ServiceItemId = selectedService.Id,
+                StartAt = startAt,
+                Notes = notes?.Trim() ?? ""
+            };
+
+            await Wellness.BookAsync(appointment);
+
+            successMessage =
+                "Your appointment request has been submitted successfully.";
+
+            notes = "";
+
+            await Task.Delay(800);
+
+            Navigation.NavigateTo("/dashboard");
+        }
+        catch (InvalidOperationException ex)
+        {
+            validationMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+
+            validationMessage =
+                "Something went wrong while booking your appointment. Please try again.";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private string FormatDate()
+    {
+        return appointmentDate.ToString("MMMM d, yyyy");
+    }
+
+    private string FormatTime()
+    {
+        return TimeOnly.TryParseExact(
+                selectedAppointmentTime,
+                "HH:mm",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out var selectedTime)
+            ? selectedTime.ToString("h:mm tt")
+            : "Select a time";
+    }
+}

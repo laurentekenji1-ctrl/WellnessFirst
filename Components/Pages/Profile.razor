@@ -1,0 +1,88 @@
+
+@page "/profile"
+@attribute [Authorize]
+@inject CurrentUserService CurrentUser
+
+<PageTitle>My Profile</PageTitle>
+
+<div class="profile-page">
+    <div class="profile-container">
+
+        <header class="profile-header">
+            <span class="profile-eyebrow">YOUR ACCOUNT</span>
+            <h1>My Profile</h1>
+            <p>
+                Manage your personal information and review your account details.
+            </p>
+        </header>
+
+        @if (!CurrentUser.IsAuthenticated)
+        {
+            <div class="profile-card profile-empty">
+                <p>Please sign in to view your profile.</p>
+            </div>
+        }
+        else
+        {
+            <section class="profile-card">
+
+                <div class="profile-card-header">
+                    <div class="profile-avatar">
+                        @ProfileInitial
+                    </div>
+
+                    <div>
+                        <h2>@CurrentUser.User!.FullName</h2>
+                        <span class="profile-role">
+                            @CurrentUser.User.Role
+                        </span>
+                    </div>
+                </div>
+
+                <div class="profile-divider"></div>
+
+                <div class="profile-section">
+                    <span class="profile-section-eyebrow">PERSONAL INFORMATION</span>
+                    <h3>Account details</h3>
+
+                    <div class="profile-fields">
+                        <div class="profile-field">
+                            <label>Full name</label>
+                            <input value="@CurrentUser.User.FullName" disabled />
+                        </div>
+
+                        <div class="profile-field">
+                            <label>Email address</label>
+                            <input value="@CurrentUser.User.Email" disabled />
+                        </div>
+
+                        <div class="profile-field">
+                            <label>Account role</label>
+                            <input value="@CurrentUser.User.Role" disabled />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-privacy">
+                    <div class="profile-privacy-icon">🔒</div>
+                    <div>
+                        <h3>Your privacy matters</h3>
+                        <p>
+                            Your personal information is protected.
+                            Privacy and consent controls will be connected
+                            to the production privacy module.
+                        </p>
+                    </div>
+                </div>
+
+            </section>
+        }
+    </div>
+</div>
+
+@code {
+    private string ProfileInitial =>
+        string.IsNullOrWhiteSpace(CurrentUser.User?.FullName)
+            ? "?"
+            : CurrentUser.User.FullName.Trim()[0].ToString().ToUpperInvariant();
+}

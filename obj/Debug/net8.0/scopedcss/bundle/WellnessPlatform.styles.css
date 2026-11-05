@@ -1,0 +1,144 @@
+/* /Components/Pages/Admin/StaffManagement.razor.rz.scp.css */
+
+.staff-management-page[b-szwscbgitg] {
+    min-height: 100vh;
+    padding: 32px !important;
+    background: #f5f7f2;
+    color: #263b30;
+}
+
+.staff-management-page h2[b-szwscbgitg] {
+    color: #244b39;
+    font-size: 30px;
+    font-weight: 750;
+    letter-spacing: -0.7px;
+}
+
+.staff-management-page .text-muted[b-szwscbgitg] {
+    color: #7b887e !important;
+}
+
+.staff-management-page .card[b-szwscbgitg] {
+    border: 1px solid #e6ebe4;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 5px 20px rgba(36, 75, 57, 0.045) !important;
+}
+
+.staff-management-page .card-header[b-szwscbgitg] {
+    padding: 20px 24px;
+    background: #fff;
+    border-bottom: 1px solid #edf0eb;
+}
+
+.staff-management-page .card-header h5[b-szwscbgitg] {
+    color: #244b39;
+    font-weight: 700;
+}
+
+.staff-management-page .card-body[b-szwscbgitg] {
+    padding: 24px;
+}
+
+.staff-management-page .form-label[b-szwscbgitg] {
+    color: #42574a;
+    font-size: 13px;
+    font-weight: 650;
+    margin-bottom: 8px;
+}
+
+.staff-management-page .form-control[b-szwscbgitg] {
+    min-height: 46px;
+    border: 1px solid #dce4dc;
+    border-radius: 9px;
+    padding: 11px 14px;
+    background: #fcfdfb;
+    color: #263b30;
+}
+
+.staff-management-page .form-control:focus[b-szwscbgitg] {
+    border-color: #47775b;
+    box-shadow: 0 0 0 3px rgba(71, 119, 91, 0.12);
+}
+
+.staff-management-page .btn-success[b-szwscbgitg] {
+    background: #28553e;
+    border-color: #28553e;
+    border-radius: 9px;
+    padding: 11px 20px;
+    font-weight: 650;
+}
+
+.staff-management-page .btn-success:hover[b-szwscbgitg] {
+    background: #1d422f;
+    border-color: #1d422f;
+}
+
+.staff-management-page .btn-outline-primary[b-szwscbgitg],
+.staff-management-page .btn-outline-danger[b-szwscbgitg],
+.staff-management-page .btn-outline-success[b-szwscbgitg] {
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 11px;
+}
+
+.staff-management-page .table[b-szwscbgitg] {
+    margin-bottom: 0;
+    color: #34483a;
+    vertical-align: middle;
+}
+
+.staff-management-page .table thead th[b-szwscbgitg] {
+    background: #f6f8f4;
+    color: #718078;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    padding: 15px 12px;
+    border-bottom: 1px solid #e7ece5;
+}
+
+.staff-management-page .table tbody td[b-szwscbgitg] {
+    padding: 17px 12px;
+    border-color: #edf0eb;
+    font-size: 13px;
+}
+
+.staff-management-page .table-striped > tbody > tr:nth-of-type(odd) > *[b-szwscbgitg] {
+    background: #fcfdfb;
+}
+
+.staff-management-page .badge[b-szwscbgitg] {
+    border-radius: 20px;
+    padding: 7px 11px;
+    font-size: 11px;
+    font-weight: 650;
+}
+
+.staff-management-page .alert[b-szwscbgitg] {
+    border: none;
+    border-radius: 10px;
+    padding: 14px 18px;
+}
+
+.staff-management-page .validation-message[b-szwscbgitg] {
+    color: #b54747;
+    font-size: 12px;
+}
+
+@media (max-width: 768px) {
+    .staff-management-page[b-szwscbgitg] {
+        padding: 18px !important;
+    }
+
+    .staff-management-page .card-body[b-szwscbgitg] {
+        padding: 17px;
+    }
+
+    .staff-management-page h2[b-szwscbgitg] {
+        font-size: 24px;
+    }
+}

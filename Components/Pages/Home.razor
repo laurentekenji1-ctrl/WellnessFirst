@@ -1,0 +1,451 @@
+@page "/"
+@using WellnessPlatform.Models
+@inject WellnessPlatform.Services.WellnessService Wellness
+@inject NavigationManager Navigation
+
+<PageTitle>Wellness Platform</PageTitle>
+
+<div class="home-page">
+
+    <!-- HERO -->
+    <section class="home-hero">
+        <div class="home-container hero-grid">
+
+            <div class="hero-content">
+
+                <div class="eyebrow">
+                    YOUR WELLNESS JOURNEY
+                </div>
+
+                <h1>
+                    Feel better.<br />
+                    Live healthier.<br />
+                    Stay on track.
+                </h1>
+
+                <p class="hero-description">
+                    Explore our wellness services, learn how each service
+                    can support your goals, and book the right session
+                    when you're ready.
+                </p>
+
+                <div class="hero-actions">
+
+                    <a href="/services"
+                       class="home-button home-button-primary">
+                        Explore Our Services
+                    </a>
+
+                    <a href="/signin"
+                       class="home-button home-button-secondary">
+                        Sign In
+                    </a>
+
+                </div>
+
+                <div class="hero-features">
+
+                    <span>✓ Personalized wellness</span>
+                    <span>✓ Flexible appointments</span>
+                    <span>✓ Secure client records</span>
+
+                </div>
+
+            </div>
+
+            <div class="hero-card">
+
+                <div class="hero-card-label">
+                    WELLNESS AT YOUR PACE
+                </div>
+
+                <div class="hero-card-icon">
+                    +
+                </div>
+
+                <h2>Simple</h2>
+
+                <p>
+                    Explore first. Decide when you're ready.
+                    Your personal dashboard is available after sign-in.
+                </p>
+
+                <a href="/services"
+                   class="text-link">
+                    View available services →
+                </a>
+
+            </div>
+
+        </div>
+    </section>
+
+
+    <!-- SERVICES -->
+    <section class="home-section services-section">
+
+        <div class="home-container">
+
+            <div class="section-heading">
+
+                <div>
+                    <div class="eyebrow">
+                        OUR SERVICES
+                    </div>
+
+                    <h2>
+                        Find a service that fits your needs
+                    </h2>
+                </div>
+
+                <a href="/services"
+                   class="section-link">
+                    View all services →
+                </a>
+
+            </div>
+
+
+            @if (services.Count == 0)
+            {
+                <div class="empty-services">
+                    No services are currently available.
+                </div>
+            }
+            else
+            {
+                <div class="service-grid">
+
+                    @foreach (var service in services.Take(3))
+                    {
+                        <article class="home-service-card">
+
+                            <div class="service-card-top">
+
+                                <div class="service-icon">
+                                    +
+                                </div>
+
+                                <div class="service-price">
+                                    ₱@service.Price.ToString("N2")
+                                </div>
+
+                            </div>
+
+                            <h3>
+                                @service.Name
+                            </h3>
+
+                            <p>
+                                @service.Description
+                            </p>
+
+                            <div class="service-duration">
+                                @service.DurationMinutes minutes
+                            </div>
+
+                            <a href="@($"/services/{service.Id}")"
+                               class="service-link">
+                                View service details →
+                            </a>
+
+                        </article>
+                    }
+
+                </div>
+            }
+
+        </div>
+
+    </section>
+
+
+    <!-- HOW IT WORKS -->
+    <section class="home-section how-section">
+
+        <div class="home-container">
+
+            <div class="section-heading centered">
+
+                <div>
+                    <div class="eyebrow">
+                        HOW IT WORKS
+                    </div>
+
+                    <h2>
+                        Start your wellness journey in three steps
+                    </h2>
+                </div>
+
+            </div>
+
+
+            <div class="steps-grid">
+
+                <div class="step-card">
+
+                    <div class="step-number">
+                        01
+                    </div>
+
+                    <h3>
+                        Explore
+                    </h3>
+
+                    <p>
+                        Browse our public services and learn about
+                        available wellness sessions.
+                    </p>
+
+                </div>
+
+
+                <div class="step-card">
+
+                    <div class="step-number">
+                        02
+                    </div>
+
+                    <h3>
+                        Choose
+                    </h3>
+
+                    <p>
+                        Select the service that best matches what
+                        you want to work on.
+                    </p>
+
+                </div>
+
+
+                <div class="step-card">
+
+                    <div class="step-number">
+                        03
+                    </div>
+
+                    <h3>
+                        Book
+                    </h3>
+
+                    <p>
+                        Sign in or create an account, then choose
+                        your preferred appointment time.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- PERSONAL SPACE -->
+    <section class="home-section personal-section">
+
+        <div class="home-container personal-grid">
+
+            <div>
+
+                <div class="eyebrow">
+                    YOUR PERSONAL SPACE
+                </div>
+
+                <h2>
+                    Keep your wellness journey organized.
+                </h2>
+
+                <p class="personal-description">
+                    Once you sign in, your Client Dashboard gives you
+                    one place to review wellness records, goals,
+                    activities, appointments and progress.
+                </p>
+
+                <a href="/signin"
+                   class="home-button home-button-primary">
+                    Access My Wellness Dashboard
+                </a>
+
+            </div>
+
+
+            <div class="dashboard-preview">
+
+                <div class="preview-header">
+
+                    <div>
+                        <span class="preview-label">
+                            CLIENT DASHBOARD
+                        </span>
+
+                        <h3>
+                            Your wellness overview
+                        </h3>
+                    </div>
+
+                    <div class="preview-avatar">
+                        W
+                    </div>
+
+                </div>
+
+
+                <div class="preview-stats">
+
+                    <div class="preview-stat">
+
+                        <span>
+                            Wellness Goals
+                        </span>
+
+                        <strong>
+                            72%
+                        </strong>
+
+                    </div>
+
+
+                    <div class="preview-stat">
+
+                        <span>
+                            Upcoming Appointment
+                        </span>
+
+                        <strong>
+                            Ready
+                        </strong>
+
+                    </div>
+
+
+                    <div class="preview-stat">
+
+                        <span>
+                            Recent Activity
+                        </span>
+
+                        <strong>
+                            Updated
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <div class="preview-list">
+
+                    <div>
+                        <span>Wellness records</span>
+                        <strong>→</strong>
+                    </div>
+
+                    <div>
+                        <span>Goals & progress</span>
+                        <strong>→</strong>
+                    </div>
+
+                    <div>
+                        <span>Appointments</span>
+                        <strong>→</strong>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- FINAL CTA -->
+    <section class="home-cta">
+
+        <div class="home-container">
+
+            <div class="cta-content">
+
+                <div class="eyebrow">
+                    READY WHEN YOU ARE
+                </div>
+
+                <h2>
+                    Take the next step toward better wellness.
+                </h2>
+
+                <p>
+                    Explore our services first. You only need an account
+                    when you're ready to book or manage your personal
+                    wellness information.
+                </p>
+
+                <div class="cta-actions">
+
+                    <a href="/services"
+                       class="home-button home-button-primary">
+                        Explore Services
+                    </a>
+
+                    <a href="/signin"
+                       class="home-button home-button-secondary">
+                        Sign In / Register
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- FOOTER -->
+    <footer class="home-footer">
+
+        <div class="home-container footer-inner">
+
+            <div>
+                © @DateTime.Now.Year Wellness Platform
+            </div>
+
+            <div class="footer-links">
+
+                <a href="/">
+                    Home
+                </a>
+
+                <a href="/services">
+                    Services
+                </a>
+
+                <a href="/booking">
+                    Booking
+                </a>
+
+                <a href="/signin">
+                    Sign In
+                </a>
+
+            </div>
+
+        </div>
+
+    </footer>
+
+</div>
+
+
+@code {
+
+    private List<ServiceItem> services = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        services = await Wellness.GetServicesAsync();
+    }
+
+}

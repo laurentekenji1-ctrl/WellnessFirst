@@ -1,0 +1,138 @@
+@page "/goals"
+@attribute [Authorize(Policy = "ClientOnly")]
+@inject CurrentUserService CurrentUser
+@inject WellnessService Wellness
+
+<PageTitle>My Goals</PageTitle>
+
+<div class="goals-page">
+    <div class="goals-container">
+
+        <header class="goals-header">
+            <div>
+                <span class="goals-eyebrow">YOUR WELLNESS JOURNEY</span>
+                <h1>My Goals</h1>
+                <p>Set meaningful goals, track your progress, and celebrate every step forward.</p>
+            </div>
+        </header>
+
+        @if (!CurrentUser.IsClient)
+        {
+            <div class="goals-notice">
+                Client access is required.
+            </div>
+        }
+        else
+        {
+            <section class="goals-create-card">
+                <div class="goals-card-heading">
+                    <div>
+                        <span class="goals-section-label">TAKE THE NEXT STEP</span>
+                        <h2>Create a wellness goal</h2>
+                        <p>Start with one small, meaningful change.</p>
+                    </div>
+                    <div class="goals-heading-icon">＋</div>
+                </div>
+
+                <div class="goals-form">
+                    <div class="goals-form-group">
+                        <label for="goalTitle">Goal title</label>
+                        <input id="goalTitle"
+                               class="goals-input"
+                               @bind="title"
+                               placeholder="e.g. Exercise three times a week" />
+                    </div>
+
+                    <div class="goals-form-group">
+                        <label for="goalDescription">Description</label>
+                        <textarea id="goalDescription"
+                                  class="goals-input goals-textarea"
+                                  @bind="description"
+                                  placeholder="Describe what you want to achieve..."></textarea>
+                    </div>
+
+                    <button class="goals-add-button" @onclick="Add">
+                        <span>＋</span> Add goal
+                    </button>
+                </div>
+            </section>
+
+            <section class="goals-list-section">
+                <div class="goals-list-heading">
+                    <div>
+                        <span class="goals-section-label">YOUR PERSONAL PLAN</span>
+                        <h2>Your wellness goals</h2>
+                    </div>
+                    <span class="goals-count">@goals.Count goals</span>
+                </div>
+
+                @if (goals.Count == 0)
+                {
+                    <div class="goals-empty-state">
+                        <div class="goals-empty-icon">◎</div>
+                        <h3>Your journey starts here</h3>
+                        <p>You haven't added any goals yet. Create your first goal above and start building healthy habits.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="goals-list">
+                        @foreach (var goal in goals)
+                        {
+                            <article class="goal-card" @key="goal.Id">
+                                <div class="goal-card-main">
+                                    <div class="goal-status-icon">✓</div>
+                                    <div class="goal-card-content">
+                                        <h3>@goal.Title</h3>
+                                        <p>@goal.Description</p>
+                                    </div>
+                                    <div class="goal-progress-value">
+                                        @goal.ProgressPercent%
+                                    </div>
+                                </div>
+
+                                <div class="goal-progress-track">
+                                    <div class="goal-progress-fill"
+                                         style="width: @($"{Math.Clamp(goal.ProgressPercent, 0, 100)}%")">
+                                    </div>
+                                </div>
+                                <div class="goal-progress-caption">
+                                    <span>Progress</span>
+                                    <span>@goal.ProgressPercent% completed</span>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+            </section>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Goal> goals = [];
+    private string title = "";
+    private string description = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.IsClient)
+            goals = await Wellness.GetGoalsAsync(CurrentUser.User!.Id);
+    }
+
+    private async Task Add()
+    {
+        if (string.IsNullOrWhiteSpace(title)) return;
+
+        await Wellness.CreateGoalAsync(new Goal
+        {
+            ClientId = CurrentUser.User!.Id,
+            Title = title,
+            Description = description
+        });
+
+        title = "";
+        description = "";
+        goals = await Wellness.GetGoalsAsync(CurrentUser.User.Id);
+    }
+}

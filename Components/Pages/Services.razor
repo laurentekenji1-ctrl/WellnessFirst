@@ -1,0 +1,161 @@
+@page "/services"
+
+@using WellnessPlatform.Models
+
+@inject WellnessPlatform.Services.WellnessService WellnessService
+
+<PageTitle>Services | Wellness Platform</PageTitle>
+
+
+<div class="services-page">
+
+    <section class="services-hero">
+
+        <div class="container">
+
+            <span class="eyebrow">
+                OUR SERVICES
+            </span>
+
+            <h1>
+                Find a service that fits your needs
+            </h1>
+
+            <p>
+                Explore our wellness services and choose the session
+                that best supports your wellness goals.
+            </p>
+
+        </div>
+
+    </section>
+
+
+    <section class="services-list">
+
+        <div class="container">
+
+            @if (loading)
+            {
+                <div class="loading">
+                    Loading services...
+                </div>
+            }
+            else if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="alert">
+                    @errorMessage
+                </div>
+            }
+            else if (services.Count == 0)
+            {
+                <div class="empty-state">
+
+                    <h2>
+                        No services available
+                    </h2>
+
+                    <p>
+                        There are currently no wellness services available.
+                        Please check again later.
+                    </p>
+
+                </div>
+            }
+            else
+            {
+                <div class="service-grid">
+
+                    @foreach (var service in services)
+                    {
+                        <article class="service-card">
+
+                            <div class="service-card-content">
+
+                                <div class="service-icon">
+                                    +
+                                </div>
+
+
+                                <h2>
+                                    @service.Name
+                                </h2>
+
+
+                                @if (!string.IsNullOrWhiteSpace(
+                                    service.Description))
+                                {
+                                    <p class="service-description">
+
+                                        @service.Description
+
+                                    </p>
+                                }
+
+
+                                <div class="service-meta">
+
+                                    <span>
+                                        @service.DurationMinutes min
+                                    </span>
+
+                                    <strong>
+                                        @service.Price.ToString("C")
+                                    </strong>
+
+                                </div>
+
+
+                                <NavLink
+                                    class="service-link"
+                                    href="@($"/services/{service.Id}")">
+
+                                    View service details →
+
+                                </NavLink>
+
+                            </div>
+
+                        </article>
+                    }
+
+                </div>
+            }
+
+        </div>
+
+    </section>
+
+</div>
+
+
+@code {
+
+    private List<ServiceItem> services = new();
+
+    private bool loading = true;
+
+    private string? errorMessage;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            services =
+                await WellnessService.GetServicesAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage =
+                "We couldn't load the wellness services. Please try again.";
+
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+}

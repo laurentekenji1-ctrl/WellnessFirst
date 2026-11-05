@@ -1,0 +1,50 @@
+@using WellnessPlatform.Components.Layout
+
+<Router AppAssembly="@typeof(Program).Assembly">
+
+    <Found Context="routeData">
+
+        <AuthorizeRouteView
+            RouteData="@routeData"
+            DefaultLayout="@typeof(MainLayout)">
+            <NotAuthorized Context="authenticationState">
+                <div class="container">
+                    @if (authenticationState.User.Identity?.IsAuthenticated == true)
+                    {
+                        <h1>Access denied</h1>
+                        <p>Your account does not have permission to view this page.</p>
+                    }
+                    else
+                    {
+                        <h1>Sign in required</h1>
+                        <p><a href="/signin">Sign in</a> to continue.</p>
+                    }
+                </div>
+            </NotAuthorized>
+        </AuthorizeRouteView>
+
+        <FocusOnNavigate
+            RouteData="@routeData"
+            Selector="h1" />
+
+    </Found>
+
+    <NotFound>
+
+        <LayoutView Layout="@typeof(MainLayout)">
+
+            <div class="container">
+
+                <h1>Page not found</h1>
+
+                <p>
+                    Sorry, there's nothing at this address.
+                </p>
+
+            </div>
+
+        </LayoutView>
+
+    </NotFound>
+
+</Router>
